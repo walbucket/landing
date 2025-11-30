@@ -1,0 +1,99 @@
+# Delete
+
+Delete an asset from Walbucket storage. This removes the asset from both the Sui blockchain and Walrus storage.
+
+## Method Signature
+
+```typescript
+delete(assetId: string): Promise<void>
+```
+
+## Parameters
+
+### `assetId` (required)
+
+The asset ID to delete. This is the `assetId` returned from the `upload` method.
+
+## Returns
+
+`Promise<void>` - Resolves when the asset is successfully deleted.
+
+## Examples
+
+### Basic Delete
+
+```typescript
+await walbucket.delete(assetId);
+console.log('Asset deleted successfully');
+```
+
+### Delete with Error Handling
+
+```typescript
+try {
+  await walbucket.delete(assetId);
+  console.log('Asset deleted successfully');
+} catch (error) {
+  console.error('Failed to delete asset:', error.message);
+}
+```
+
+### Delete After Confirmation
+
+```typescript
+async function deleteAsset(assetId: string) {
+  // Get asset info first
+  const asset = await walbucket.getAsset(assetId);
+  
+  if (!asset) {
+    console.log('Asset not found');
+    return;
+  }
+  
+  // Confirm deletion
+  const confirmed = confirm(`Delete ${asset.name}?`);
+  
+  if (confirmed) {
+    await walbucket.delete(assetId);
+    console.log('Asset deleted');
+  }
+}
+```
+
+## Error Handling
+
+The `delete` method may throw the following errors:
+
+- `ValidationError` - Invalid API key, missing delete permissions, or asset not found
+- `BlockchainError` - Failed to delete asset from Sui blockchain
+- `NetworkError` - Failed to delete from Walrus storage
+
+```typescript
+try {
+  await walbucket.delete(assetId);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Validation error:', error.message);
+    // Check if API key has delete permission
+  } else if (error instanceof BlockchainError) {
+    console.error('Blockchain error:', error.message);
+  } else if (error instanceof NetworkError) {
+    console.error('Network error:', error.message);
+  }
+}
+```
+
+## Notes
+
+- Deleting an asset removes it from both the Sui blockchain and Walrus storage
+- This action **cannot be undone** - make sure you want to delete the asset
+- You must have delete permissions on your API key
+- The asset must exist and be owned by your developer account
+- Cached metadata is automatically cleared
+
+## Related
+
+- [Upload](/docs/api/upload) - Upload files
+- [Retrieve](/docs/api/retrieve) - Get files back
+- [Get Asset](/docs/api/get-asset) - Get metadata
+- [Error Handling](/docs/advanced/error-handling) - Handle errors gracefully

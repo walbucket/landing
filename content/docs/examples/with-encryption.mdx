@@ -1,0 +1,54 @@
+# Upload with Encryption Example
+
+Example of uploading files with encryption enabled.
+
+## Upload with Encryption
+
+```typescript
+import { Walbucket } from '@walbucket/sdk';
+
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  sponsorPrivateKey: 'your-private-key',
+});
+
+// Upload with wallet-gated encryption
+const result = await walbucket.upload(file, {
+  name: 'secret-document.pdf',
+  encryption: true,
+  policy: {
+    type: 'wallet-gated',
+    addresses: ['0x123...', '0x456...']
+  }
+});
+
+console.log('Encrypted asset:', result.assetId);
+console.log('Policy ID:', result.policyId);
+```
+
+## Retrieve and Decrypt
+
+```typescript
+import { SealClient } from '@mysten/seal';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+
+const suiClient = new SuiClient({
+  url: getFullnodeUrl('testnet'),
+});
+
+const sealClient = new SealClient({ suiClient });
+const sessionKey = await sealClient.getSessionKey(policyId);
+
+const result = await walbucket.retrieve(assetId, {
+  sessionKey,
+});
+
+// Use the file data
+const fileContent = result.data.toString('utf8');
+```
+
+## Related
+
+- [Encryption Policies](/docs/advanced/encryption-policies) - Learn about encryption options
+- [Retrieve API](/docs/api/retrieve) - Retrieve encrypted files

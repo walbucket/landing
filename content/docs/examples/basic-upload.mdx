@@ -1,0 +1,41 @@
+# Basic Upload Example
+
+Simple example of uploading a file to Walbucket.
+
+## Example
+
+```typescript
+import { Walbucket } from '@walbucket/sdk';
+
+// Initialize SDK
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  sponsorPrivateKey: 'your-private-key',
+});
+
+// Upload a file
+const result = await walbucket.upload(file, {
+  name: 'my-image.jpg',
+  folder: 'products',
+});
+
+console.log('Uploaded!', result.url);
+console.log('Asset ID:', result.assetId);
+```
+
+## Working with URLs
+
+```typescript
+// Upload returns URL automatically
+const uploadResult = await walbucket.upload(file);
+console.log('File URL:', uploadResult.url);
+
+// Use URL directly in your app
+// <img src={uploadResult.url} />
+```
+
+## Related
+
+- [Upload API](/docs/api/upload) - Full API reference
+- [Quick Start](/docs/quick-start) - Get started guide

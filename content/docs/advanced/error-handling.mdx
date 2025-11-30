@@ -1,0 +1,125 @@
+# Error Handling
+
+The SDK provides typed error classes for better error handling.
+
+## Error Types
+
+```typescript
+import { 
+  WalbucketError, 
+  ValidationError, 
+  NetworkError,
+  EncryptionError,
+  BlockchainError,
+  ConfigurationError
+} from '@walbucket/sdk';
+```
+
+## Error Handling Example
+
+```typescript
+try {
+  await walbucket.upload(file);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Validation error:', error.message);
+  } else if (error instanceof NetworkError) {
+    console.error('Network error:', error.message);
+  } else if (error instanceof EncryptionError) {
+    console.error('Encryption error:', error.message);
+  } else if (error instanceof BlockchainError) {
+    console.error('Blockchain error:', error.message);
+  } else if (error instanceof ConfigurationError) {
+    console.error('Configuration error:', error.message);
+  } else if (error instanceof WalbucketError) {
+    console.error('Error code:', error.code);
+  }
+}
+```
+
+## Error Classes
+
+### ValidationError
+
+Thrown when input validation fails.
+
+```typescript
+try {
+  await walbucket.upload(null);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    // Handle validation error
+  }
+}
+```
+
+### NetworkError
+
+Thrown when network requests fail.
+
+```typescript
+try {
+  await walbucket.upload(file);
+} catch (error) {
+  if (error instanceof NetworkError) {
+    // Handle network error (retry, etc.)
+  }
+}
+```
+
+### EncryptionError
+
+Thrown when encryption/decryption fails.
+
+```typescript
+try {
+  await walbucket.retrieve(assetId, { sessionKey });
+} catch (error) {
+  if (error instanceof EncryptionError) {
+    // Handle encryption error
+  }
+}
+```
+
+### BlockchainError
+
+Thrown when blockchain operations fail.
+
+```typescript
+try {
+  await walbucket.upload(file);
+} catch (error) {
+  if (error instanceof BlockchainError) {
+    // Handle blockchain error
+  }
+}
+```
+
+### ConfigurationError
+
+Thrown when SDK configuration is invalid.
+
+```typescript
+try {
+  const walbucket = new Walbucket({
+    apiKey: '', // Invalid
+  });
+} catch (error) {
+  if (error instanceof ConfigurationError) {
+    // Handle configuration error
+  }
+}
+```
+
+## Best Practices
+
+- Always wrap SDK calls in try-catch blocks
+- Check error types for specific handling
+- Provide user-friendly error messages
+- Log errors for debugging
+- Retry network errors when appropriate
+
+## Related
+
+- [Configuration](/docs/configuration) - Avoid configuration errors
+- [Encryption Policies](/docs/advanced/encryption-policies) - Handle encryption errors

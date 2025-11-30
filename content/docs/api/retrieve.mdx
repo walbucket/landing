@@ -1,0 +1,190 @@
+# Retrieve
+
+Retrieve a file from Walbucket storage. The SDK handles decryption automatically if the asset is encrypted.
+
+## Method Signature
+
+```typescript
+retrieve(assetId: string, options?: RetrieveOptions): Promise<RetrieveResult>
+```
+
+## Parameters
+
+### `assetId` (required)
+
+The asset ID to retrieve. This is the `assetId` returned from the `upload` method.
+
+### `options` (optional)
+
+Retrieve configuration options:
+
+```typescript
+interface RetrieveOptions {
+  /** Decrypt the file (default: true if encrypted) */
+  decrypt?: boolean;
+  
+  /** Password for password-protected assets */
+  password?: string;
+  
+  /** SessionKey for decryption (required if decrypt is true and asset is encrypted) */
+  sessionKey?: SessionKey; // From @mysten/seal
+}
+```
+
+## Returns
+
+`Promise<RetrieveResult>` - Retrieve result object:
+
+```typescript
+interface RetrieveResult {
+  /** File data as Buffer */
+  data: Buffer;
+  
+  /** Asset URL for accessing the file */
+  url: string;
+  
+  /** Complete asset metadata */
+  metadata: AssetMetadata;
+}
+```
+
+The `metadata` object includes:
+
+```typescript
+interface AssetMetadata {
+  assetId: string;
+  owner: string;
+  blobId: string;
+  url: string;
+  name: string;
+  contentType: string;
+  size: number;
+  createdAt: number;
+  updatedAt: number;
+  policyId?: string;
+  tags: string[];
+  description: string;
+  category: string;
+  width?: number;
+  height?: number;
+  thumbnailBlobId?: string;
+  folderId?: string;
+}
+```
+
+## Examples
+
+### Basic Retrieve
+
+```typescript
+const result = await walbucket.retrieve(assetId);
+console.log('File URL:', result.url);
+console.log('File size:', result.metadata.size);
+console.log('Content type:', result.metadata.contentType);
+
+// Use the file data
+const fileContent = result.data;
+```
+
+### Retrieve with Decryption
+
+For encrypted assets, you need to provide a `SessionKey` from `@mysten/seal`:
+
+```typescript
+import { SealClient } from '@mysten/seal';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+
+// Initialize Seal client
+const suiClient = new SuiClient({
+  url: getFullnodeUrl('testnet'),
+});
+
+const sealClient = new SealClient({ suiClient });
+
+// Get session key for the policy
+const sessionKey = await sealClient.getSessionKey(policyId);
+
+// Retrieve and decrypt
+const result = await walbucket.retrieve(assetId, {
+  sessionKey,
+});
+
+// Use the decrypted file data
+const fileContent = result.data.toString('utf8');
+```
+
+### Retrieve Without Decryption
+
+If you want to retrieve the encrypted file without decrypting:
+
+```typescript
+const result = await walbucket.retrieve(assetId, {
+  decrypt: false,
+});
+
+// result.data contains the encrypted file
+```
+
+### Retrieve Password-Protected File
+
+For password-protected assets:
+
+```typescript
+const result = await walbucket.retrieve(assetId, {
+  password: 'my-secret-password',
+});
+```
+
+### Using File Data
+
+```typescript
+const result = await walbucket.retrieve(assetId);
+
+// For text files
+const textContent = result.data.toString('utf8');
+
+// For images (browser)
+const blob = new Blob([result.data], { type: result.metadata.contentType });
+const imageUrl = URL.createObjectURL(blob);
+
+// For binary files (Node.js)
+import fs from 'fs';
+fs.writeFileSync('output.jpg', result.data);
+```
+
+## Error Handling
+
+The `retrieve` method may throw the following errors:
+
+- `ValidationError` - Invalid API key, missing permissions, asset not found, or missing SessionKey for encrypted assets
+- `NetworkError` - Failed to retrieve from Walrus storage
+- `BlockchainError` - Failed to fetch asset metadata from Sui
+- `EncryptionError` - Decryption failed
+
+```typescript
+try {
+  const result = await walbucket.retrieve(assetId);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Validation error:', error.message);
+  } else if (error instanceof EncryptionError) {
+    console.error('Decryption failed:', error.message);
+  }
+}
+```
+
+## Notes
+
+- Files are automatically retrieved from Walrus decentralized storage
+- Asset metadata is fetched from the Sui blockchain (cached for performance)
+- Decryption is automatic if the asset is encrypted and `decrypt` is `true` (default)
+- SessionKey is required for encrypted assets - create it using `@mysten/seal`
+- The returned URL can be used directly in your application
+
+## Related
+
+- [Upload](/docs/api/upload) - Upload files
+- [Get Asset](/docs/api/get-asset) - Get metadata without file data
+- [Delete](/docs/api/delete) - Remove files
+- [Encryption Policies](/docs/advanced/encryption-policies) - Learn about encryption
+- [Error Handling](/docs/advanced/error-handling) - Handle errors gracefully

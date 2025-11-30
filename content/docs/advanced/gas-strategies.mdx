@@ -1,0 +1,93 @@
+# Gas Strategies
+
+Walbucket supports two gas payment strategies, giving you flexibility in how transactions are paid for.
+
+## Developer-Sponsored (Default)
+
+The developer pays for all gas fees. This provides the best user experience as users don't need to approve gas payments.
+
+### Benefits
+
+- ✅ Better user experience (no wallet popups for gas)
+- ✅ Users don't need SUI tokens
+- ✅ Simplified onboarding
+
+### Requirements
+
+- **`sponsorPrivateKey`**: Your private key for sponsoring transactions
+
+### Example
+
+```typescript
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  gasStrategy: 'developer-sponsored', // Default - can omit
+  sponsorPrivateKey: 'your-private-key', // Required
+});
+```
+
+## User-Pays
+
+Users pay their own gas fees. This is more decentralized and puts users in control.
+
+### Benefits
+
+- ✅ More decentralized
+- ✅ Users control their own transactions
+- ✅ No developer gas costs
+
+### Requirements
+
+- **`userSigner`**: Signer from the user's connected wallet extension
+- Users need SUI tokens for gas
+- Users must connect their wallet (Sui Wallet, Ethos, etc.)
+
+### Getting the User Signer
+
+Users connect their wallets through wallet extensions, and you get the signer from the connected wallet.
+
+**Using @mysten/dapp-kit (React Apps):**
+
+```typescript
+import { useCurrentWallet } from '@mysten/dapp-kit';
+import { Walbucket } from '@walbucket/sdk';
+import { useEffect, useState } from 'react';
+
+function MyComponent() {
+  const { currentWallet, isConnected } = useCurrentWallet();
+  const [walbucket, setWalbucket] = useState<Walbucket | null>(null);
+
+  useEffect(() => {
+    if (isConnected && currentWallet?.account) {
+      // Get signer from connected wallet
+      const walbucket = new Walbucket({
+        apiKey: 'your-api-key',
+        network: 'testnet',
+        gasStrategy: 'user-pays',
+        userSigner: currentWallet.account, // Signer from wallet extension
+      });
+      setWalbucket(walbucket);
+    }
+  }, [isConnected, currentWallet]);
+
+  // When upload is called, wallet popup appears for user to sign
+  const handleUpload = async (file: File) => {
+    if (!walbucket) return;
+    const result = await walbucket.upload(file);
+    console.log('Uploaded!', result.url);
+  };
+}
+```
+
+### Important Notes
+
+- ✅ The `userSigner` comes from a connected wallet extension (Sui Wallet, Ethos, etc.)
+- ✅ Wallet popups appear automatically when SDK methods are called
+- ✅ Never ask users for their private keys - always use wallet extensions
+- ✅ The signer is provided by the wallet after the user connects
+
+## Learn More
+
+- [Wallet Integration](/docs/advanced/wallet-integration) - Complete wallet setup guide
+- [Configuration](/docs/configuration) - All configuration options

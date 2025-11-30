@@ -1,0 +1,116 @@
+# Wallet Integration Example
+
+Complete example of integrating wallets with Walbucket SDK.
+
+## React App with @mysten/dapp-kit
+
+```typescript
+import { useCurrentWallet, ConnectButton } from '@mysten/dapp-kit';
+import { Walbucket } from '@walbucket/sdk';
+import { useState, useEffect } from 'react';
+
+function UploadComponent() {
+  const { currentWallet, isConnected } = useCurrentWallet();
+  const [walbucket, setWalbucket] = useState<Walbucket | null>(null);
+
+  useEffect(() => {
+    if (isConnected && currentWallet?.account) {
+      // Create SDK instance when wallet is connected
+      const sdk = new Walbucket({
+        apiKey: 'your-api-key',
+        network: 'testnet',
+        gasStrategy: 'user-pays',
+        userSigner: currentWallet.account, // Signer from connected wallet
+      });
+      setWalbucket(sdk);
+    }
+  }, [isConnected, currentWallet]);
+
+  const handleUpload = async (file: File) => {
+    if (!walbucket) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    // Wallet popup will appear for user to sign transaction
+    try {
+      const result = await walbucket.upload(file, {
+        name: file.name,
+      });
+      console.log('Uploaded!', result.url);
+    } catch (error) {
+      if (error.message.includes('User rejected') || error.message.includes('rejected')) {
+        console.log('User cancelled transaction');
+      }
+    }
+  };
+
+  return (
+    <div>
+      <ConnectButton />
+      {!isConnected && <p>Connect your wallet to upload files</p>}
+      {walbucket && (
+        <input 
+          type="file" 
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleUpload(file);
+          }} 
+        />
+      )}
+    </div>
+  );
+}
+```
+
+## Vanilla JavaScript/TypeScript
+
+```typescript
+import { getWallets } from '@mysten/wallet-standard';
+import { Walbucket } from '@walbucket/sdk';
+
+async function setupWallet() {
+  // Get available wallets
+  const wallets = getWallets();
+  const wallet = wallets.find(w => w.name === 'Sui Wallet');
+  
+  if (!wallet) {
+    throw new Error('Sui Wallet not found. Please install Sui Wallet extension.');
+  }
+
+  // Connect wallet (shows popup to user)
+  await wallet.features['standard:connect'].connect();
+  
+  // Get user's account/signer from wallet
+  const accounts = await wallet.features['standard:connect'].getAccounts();
+  const signer = accounts[0];
+
+  // Create SDK with user signer
+  const walbucket = new Walbucket({
+    apiKey: 'your-api-key',
+    network: 'testnet',
+    gasStrategy: 'user-pays',
+    userSigner: signer, // User will sign transactions via wallet popup
+  });
+
+  return walbucket;
+}
+
+// Usage
+const walbucket = await setupWallet();
+// When uploading, wallet popup appears automatically for user to sign
+const result = await walbucket.upload(file);
+console.log('Uploaded!', result.url);
+```
+
+## How It Works
+
+1. User connects wallet → Wallet extension provides a `Signer` interface
+2. Developer passes signer to SDK → SDK stores it for transaction signing
+3. SDK calls transaction methods → Wallet popup appears automatically
+4. User approves in wallet → Transaction is signed and executed
+
+## Related
+
+- [Wallet Integration Guide](/docs/advanced/wallet-integration) - Complete setup guide
+- [Gas Strategies](/docs/advanced/gas-strategies) - Learn about gas payment options

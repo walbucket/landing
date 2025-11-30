@@ -1,0 +1,113 @@
+# Encryption Policies
+
+Walbucket supports multiple encryption policy types for fine-grained access control.
+
+## Policy Types
+
+### Wallet-Gated
+
+Only specific wallet addresses can access the file:
+
+```typescript
+policy: {
+  type: 'wallet-gated',
+  addresses: ['0x...', '0x...']
+}
+```
+
+### Time-Limited
+
+File access expires at a specific timestamp:
+
+```typescript
+policy: {
+  type: 'time-limited',
+  expiration: Date.now() + 86400000 // 24 hours from now
+}
+```
+
+### Password-Protected
+
+File requires a password for access:
+
+```typescript
+policy: {
+  type: 'password-protected',
+  password: 'my-secret-password'
+}
+```
+
+### Public
+
+No access restrictions:
+
+```typescript
+policy: {
+  type: 'public'
+}
+```
+
+## Usage Examples
+
+### Upload with Wallet-Gated Policy
+
+```typescript
+const result = await walbucket.upload(file, {
+  name: 'private-document.pdf',
+  encryption: true,
+  policy: {
+    type: 'wallet-gated',
+    addresses: ['0x123...', '0x456...']
+  }
+});
+```
+
+### Upload with Time-Limited Policy
+
+```typescript
+const result = await walbucket.upload(file, {
+  name: 'temporary-file.jpg',
+  encryption: true,
+  policy: {
+    type: 'time-limited',
+    expiration: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+  }
+});
+```
+
+### Upload with Password Protection
+
+```typescript
+const result = await walbucket.upload(file, {
+  name: 'secure-file.pdf',
+  encryption: true,
+  policy: {
+    type: 'password-protected',
+    password: 'my-secret-password'
+  }
+});
+```
+
+### Retrieve with Decryption
+
+```typescript
+import { SealClient } from '@mysten/seal';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+
+const suiClient = new SuiClient({
+  url: getFullnodeUrl('testnet'),
+});
+
+const sealClient = new SealClient({ suiClient });
+const sessionKey = await sealClient.getSessionKey(policyId);
+
+const result = await walbucket.retrieve(assetId, {
+  sessionKey,
+});
+```
+
+## Related
+
+- [Upload](/docs/api/upload) - Upload files with encryption
+- [Retrieve](/docs/api/retrieve) - Retrieve and decrypt files
+- [Error Handling](/docs/advanced/error-handling) - Handle encryption errors

@@ -1,0 +1,196 @@
+# Upload
+
+Upload a file to Walbucket storage. The SDK handles encryption, storage, and blockchain registration automatically.
+
+## Method Signature
+
+```typescript
+upload(file: FileInput, options?: UploadOptions): Promise<UploadResult>
+```
+
+## Parameters
+
+### `file` (required)
+
+The file to upload. Supports multiple formats:
+
+- `File` - Browser File object (from `<input type="file">`)
+- `Blob` - Blob object
+- `Buffer` - Node.js Buffer
+- `Uint8Array` - Typed array
+- `string` - File path (Node.js only)
+
+### `options` (optional)
+
+Upload configuration options:
+
+```typescript
+interface UploadOptions {
+  /** Asset name (defaults to filename if not provided) */
+  name?: string;
+  
+  /** Folder/collection ID for organization */
+  folder?: string;
+  
+  /** Encryption policy (if encryption enabled) */
+  policy?: EncryptionPolicy;
+  
+  /** Tags for categorization */
+  tags?: string[];
+  
+  /** Asset description */
+  description?: string;
+  
+  /** Asset category */
+  category?: string;
+  
+  /** Image/video width in pixels */
+  width?: number;
+  
+  /** Image/video height in pixels */
+  height?: number;
+  
+  /** Thumbnail blob ID (for previews) */
+  thumbnailBlobId?: string;
+  
+  /** Override encryption setting from config */
+  encryption?: boolean;
+}
+```
+
+## Returns
+
+`Promise<UploadResult>` - Upload result object:
+
+```typescript
+interface UploadResult {
+  /** Asset ID (Sui object ID) - use this to retrieve or delete */
+  assetId: string;
+  
+  /** Blob ID (Walrus reference) */
+  blobId: string;
+  
+  /** Automatically generated file URL */
+  url: string;
+  
+  /** Whether the asset is encrypted */
+  encrypted: boolean;
+  
+  /** Policy ID (if encryption enabled) */
+  policyId?: string;
+  
+  /** File size in bytes */
+  size: number;
+  
+  /** Content type (MIME type) */
+  contentType: string;
+  
+  /** Creation timestamp (milliseconds) */
+  createdAt: number;
+}
+```
+
+## Examples
+
+### Basic Upload
+
+```typescript
+const result = await walbucket.upload(file, {
+  name: 'photo.jpg',
+  folder: 'gallery',
+});
+
+console.log('Uploaded!', result.url);
+console.log('Asset ID:', result.assetId);
+```
+
+### Upload with Metadata
+
+```typescript
+const result = await walbucket.upload(file, {
+  name: 'product-image.jpg',
+  folder: 'products',
+  tags: ['product', 'featured'],
+  description: 'Main product image',
+  category: 'images',
+  width: 1920,
+  height: 1080,
+});
+```
+
+### Upload with Encryption
+
+```typescript
+const result = await walbucket.upload(file, {
+  name: 'secret-document.pdf',
+  encryption: true,
+  policy: {
+    type: 'wallet-gated',
+    addresses: ['0x123...', '0x456...']
+  }
+});
+
+console.log('Encrypted asset:', result.assetId);
+console.log('Policy ID:', result.policyId);
+```
+
+### Upload from File Input
+
+```typescript
+// Browser
+const fileInput = document.querySelector('input[type="file"]');
+const file = fileInput.files[0];
+
+const result = await walbucket.upload(file, {
+  name: file.name,
+});
+```
+
+### Upload from Buffer (Node.js)
+
+```typescript
+import fs from 'fs';
+
+const fileBuffer = fs.readFileSync('path/to/file.jpg');
+const result = await walbucket.upload(fileBuffer, {
+  name: 'file.jpg',
+});
+```
+
+## Error Handling
+
+The `upload` method may throw the following errors:
+
+- `ValidationError` - Invalid API key, missing permissions, or invalid file/options
+- `NetworkError` - Failed to connect to Walrus storage
+- `BlockchainError` - Failed to create asset on Sui blockchain
+- `EncryptionError` - Encryption/decryption failed
+- `ConfigurationError` - SDK configuration is invalid
+
+```typescript
+try {
+  const result = await walbucket.upload(file);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Validation error:', error.message);
+  } else if (error instanceof NetworkError) {
+    console.error('Network error:', error.message);
+  }
+}
+```
+
+## Notes
+
+- Files are automatically uploaded to Walrus decentralized storage
+- Asset metadata is stored on the Sui blockchain
+- URLs are automatically generated and can be used directly
+- Encryption is enabled by default (can be disabled in config or per-upload)
+- The SDK handles all blockchain transactions automatically
+
+## Related
+
+- [Retrieve](/docs/api/retrieve) - Get files back
+- [Delete](/docs/api/delete) - Remove files
+- [Get Asset](/docs/api/get-asset) - Get metadata without file data
+- [Encryption Policies](/docs/advanced/encryption-policies) - Learn about encryption options
+- [Configuration](/docs/configuration) - SDK configuration

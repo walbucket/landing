@@ -1,0 +1,189 @@
+# Get Asset
+
+Get asset metadata without retrieving the file data. Useful for checking if an asset exists, displaying asset information, or getting file URLs.
+
+## Method Signature
+
+```typescript
+getAsset(assetId: string): Promise<AssetMetadata | null>
+```
+
+## Parameters
+
+### `assetId` (required)
+
+The asset ID to query. This is the `assetId` returned from the `upload` method.
+
+## Returns
+
+`Promise<AssetMetadata | null>` - Asset metadata or `null` if not found:
+
+```typescript
+interface AssetMetadata {
+  /** Asset ID */
+  assetId: string;
+  
+  /** Owner address */
+  owner: string;
+  
+  /** Blob ID reference to Walrus storage */
+  blobId: string;
+  
+  /** Automatically generated asset URL */
+  url: string;
+  
+  /** Asset name */
+  name: string;
+  
+  /** Content type (MIME type) */
+  contentType: string;
+  
+  /** File size in bytes */
+  size: number;
+  
+  /** Creation timestamp (milliseconds) */
+  createdAt: number;
+  
+  /** Last update timestamp (milliseconds) */
+  updatedAt: number;
+  
+  /** Encryption policy ID (if encrypted) */
+  policyId?: string;
+  
+  /** Tags for categorization */
+  tags: string[];
+  
+  /** Description */
+  description: string;
+  
+  /** Category */
+  category: string;
+  
+  /** Image/video width in pixels */
+  width?: number;
+  
+  /** Image/video height in pixels */
+  height?: number;
+  
+  /** Thumbnail blob ID */
+  thumbnailBlobId?: string;
+  
+  /** Folder/collection ID */
+  folderId?: string;
+}
+```
+
+## Examples
+
+### Basic Usage
+
+```typescript
+const asset = await walbucket.getAsset(assetId);
+
+if (asset) {
+  console.log('Asset URL:', asset.url);
+  console.log('Name:', asset.name);
+  console.log('Size:', asset.size);
+  console.log('Created:', new Date(asset.createdAt));
+} else {
+  console.log('Asset not found');
+}
+```
+
+### Check if Asset Exists
+
+```typescript
+const asset = await walbucket.getAsset(assetId);
+
+if (asset) {
+  // Asset exists, proceed with operations
+  console.log('Asset found:', asset.name);
+} else {
+  console.log('Asset does not exist');
+}
+```
+
+### Display Asset Information
+
+```typescript
+const asset = await walbucket.getAsset(assetId);
+
+if (asset) {
+  // Use URL directly in your app
+  return (
+    <div>
+      <img src={asset.url} alt={asset.name} />
+      <p>Size: {formatBytes(asset.size)}</p>
+      <p>Type: {asset.contentType}</p>
+      <p>Tags: {asset.tags.join(', ')}</p>
+    </div>
+  );
+}
+```
+
+### List Assets by Folder
+
+```typescript
+// Get all assets in a folder (requires iterating through assets)
+// Note: This is a simplified example - you may need to maintain your own index
+const folderId = 'my-folder';
+// Implementation depends on your asset indexing strategy
+```
+
+### Check Asset Encryption Status
+
+```typescript
+const asset = await walbucket.getAsset(assetId);
+
+if (asset && asset.policyId) {
+  console.log('Asset is encrypted with policy:', asset.policyId);
+  // You'll need a SessionKey to retrieve this asset
+} else {
+  console.log('Asset is not encrypted');
+}
+```
+
+## Error Handling
+
+The `getAsset` method may throw the following errors:
+
+- `ValidationError` - Invalid API key or missing permissions
+- `BlockchainError` - Failed to query Sui blockchain
+
+```typescript
+try {
+  const asset = await walbucket.getAsset(assetId);
+  if (!asset) {
+    console.log('Asset not found');
+  }
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Validation error:', error.message);
+  } else if (error instanceof BlockchainError) {
+    console.error('Blockchain error:', error.message);
+  }
+}
+```
+
+## Notes
+
+- Asset metadata is fetched from the Sui blockchain
+- Results are cached for performance (based on `cacheTTL` config)
+- Returns `null` if the asset doesn't exist (doesn't throw an error)
+- The `url` field is automatically generated and ready to use
+- This method doesn't download the file data - use `retrieve()` for that
+
+## Use Cases
+
+- Check if an asset exists before retrieving
+- Get file metadata without downloading the file
+- Display asset information in lists or galleries
+- Verify asset properties before operations
+- Get file URLs for direct use in your application
+
+## Related
+
+- [Upload](/docs/api/upload) - Upload files
+- [Retrieve](/docs/api/retrieve) - Get files with data
+- [Delete](/docs/api/delete) - Remove files
+- [Configuration](/docs/configuration) - SDK configuration

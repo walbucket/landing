@@ -1,0 +1,160 @@
+# Configuration
+
+Configure the Walbucket SDK to match your needs. All configuration is done when creating a new `Walbucket` instance.
+
+## Required Fields
+
+### `apiKey` (required)
+
+Your API key for authentication. Get your API key from the Walbucket dashboard.
+
+```typescript
+apiKey: 'your-api-key'
+```
+
+### Gas Strategy Fields (one required)
+
+Depending on your `gasStrategy`, you need to provide either:
+
+- **`sponsorPrivateKey`** - Required if using `gasStrategy: 'developer-sponsored'` (default)
+- **`userSigner`** - Required if using `gasStrategy: 'user-pays'`
+
+## Optional Fields
+
+### `network`
+
+Sui network to use. Package ID is automatically selected based on network.
+
+```typescript
+network?: 'testnet' | 'mainnet' | 'devnet' | 'localnet'
+```
+
+**Default**: `'testnet'`
+
+### `encryption`
+
+Enable Seal encryption for uploaded files.
+
+```typescript
+encryption?: boolean
+```
+
+**Default**: `true`
+
+### `gasStrategy`
+
+Choose who pays gas fees for transactions.
+
+```typescript
+gasStrategy?: 'developer-sponsored' | 'user-pays'
+```
+
+**Default**: `'developer-sponsored'`
+
+- **`'developer-sponsored'`** - Developer pays all gas fees (better UX, requires `sponsorPrivateKey`)
+- **`'user-pays'`** - Users pay their own gas fees (more decentralized, requires `userSigner`)
+
+### `cacheTTL`
+
+Cache TTL in seconds for asset metadata.
+
+```typescript
+cacheTTL?: number
+```
+
+**Default**: `3600` (1 hour)
+
+## Advanced Configuration
+
+These fields are usually auto-detected and don't need to be set:
+
+- **`packageId`** - Override auto-detected package ID
+- **`walrusPublisherUrl`** - Override auto-detected Walrus publisher URL
+- **`walrusAggregatorUrl`** - Override auto-detected Walrus aggregator URL
+- **`sealServerIds`** - Override auto-detected Seal server IDs
+
+## Configuration Interface
+
+```typescript
+interface WalbucketConfig {
+  // Required
+  apiKey: string;
+  
+  // Required based on gasStrategy choice
+  sponsorPrivateKey?: string; // Required if gasStrategy is 'developer-sponsored'
+  userSigner?: Signer; // Required if gasStrategy is 'user-pays'
+  
+  // Optional with smart defaults
+  network?: 'testnet' | 'mainnet' | 'devnet' | 'localnet'; // Default: 'testnet'
+  encryption?: boolean; // Default: true
+  gasStrategy?: 'developer-sponsored' | 'user-pays'; // Default: 'developer-sponsored'
+  
+  // Auto-detected (usually don't need to set)
+  packageId?: string; // Auto-detected from network
+  walrusPublisherUrl?: string; // Auto-detected from network
+  walrusAggregatorUrl?: string; // Auto-detected from network
+  sealServerIds?: string[]; // Auto-detected from network
+  cacheTTL?: number; // Default: 3600 seconds
+}
+```
+
+## Examples
+
+### Basic Configuration (Developer-Sponsored)
+
+```typescript
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  sponsorPrivateKey: 'your-private-key',
+});
+```
+
+### Mainnet Configuration
+
+```typescript
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'mainnet',
+  sponsorPrivateKey: 'your-private-key',
+});
+```
+
+### Without Encryption
+
+```typescript
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  sponsorPrivateKey: 'your-private-key',
+  encryption: false,
+});
+```
+
+### User-Pays Gas Strategy
+
+```typescript
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  gasStrategy: 'user-pays',
+  userSigner: userSigner, // From connected wallet
+});
+```
+
+### Custom Cache TTL
+
+```typescript
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  sponsorPrivateKey: 'your-private-key',
+  cacheTTL: 7200, // 2 hours
+});
+```
+
+## Learn More
+
+- [Gas Strategies](/docs/advanced/gas-strategies) - Detailed guide on gas payment options
+- [Wallet Integration](/docs/advanced/wallet-integration) - Setting up user-pays strategy
+- [Quick Start](/docs/quick-start) - Get started guide

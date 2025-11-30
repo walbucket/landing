@@ -1,0 +1,107 @@
+# Quick Start
+
+Get started with Walbucket SDK in just a few lines of code.
+
+## Installation
+
+Install the SDK using your preferred package manager:
+
+```bash
+pnpm add @walbucket/sdk
+# or
+npm install @walbucket/sdk
+# or
+yarn add @walbucket/sdk
+```
+
+## Initialize SDK
+
+First, import and initialize the SDK with your API key:
+
+```typescript
+import { Walbucket } from '@walbucket/sdk';
+
+// Initialize SDK
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  sponsorPrivateKey: 'your-private-key',
+});
+```
+
+## Upload a File
+
+Upload files with a simple method call:
+
+```typescript
+const result = await walbucket.upload(file, {
+  name: 'my-image.jpg',
+  folder: 'products',
+});
+
+console.log(result.assetId); // Sui object ID
+console.log(result.url); // Automatically generated file URL
+```
+
+The `upload` method accepts various file formats:
+- `File` (from file input)
+- `Blob`
+- `Buffer`
+- `Uint8Array`
+- File path string
+
+## Retrieve a File
+
+Retrieve files by their asset ID:
+
+```typescript
+const retrieveResult = await walbucket.retrieve(result.assetId);
+console.log('File data:', retrieveResult.data);
+console.log('File URL:', retrieveResult.url);
+console.log('Metadata:', retrieveResult.metadata);
+```
+
+## Delete a File
+
+Delete files when you no longer need them:
+
+```typescript
+await walbucket.delete(result.assetId);
+```
+
+## Complete Example
+
+Here's a complete example that demonstrates the basic workflow:
+
+```typescript
+import { Walbucket } from '@walbucket/sdk';
+
+// Initialize
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  sponsorPrivateKey: 'your-private-key',
+});
+
+// Upload
+const uploadResult = await walbucket.upload(file, {
+  name: 'photo.jpg',
+  folder: 'gallery',
+});
+
+console.log('Uploaded!', uploadResult.url);
+
+// Retrieve
+const retrieveResult = await walbucket.retrieve(uploadResult.assetId);
+console.log('File size:', retrieveResult.metadata.size);
+
+// Delete (when needed)
+await walbucket.delete(uploadResult.assetId);
+```
+
+## What's Next?
+
+- Learn about [Configuration](/docs/configuration) options
+- Explore the [API Reference](/docs/api/upload) for detailed method documentation
+- Check out [Examples](/docs/examples) for more use cases
+- Read about [Gas Strategies](/docs/advanced/gas-strategies) for different payment options

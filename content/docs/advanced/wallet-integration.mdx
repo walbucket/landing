@@ -1,0 +1,121 @@
+# Wallet Integration
+
+Complete guide for integrating wallets with Walbucket SDK using the user-pays gas strategy.
+
+## How User-Pays Gas Strategy Works
+
+When using `gasStrategy: 'user-pays'`, users sign transactions through their wallet extensions:
+
+1. **User Connects Wallet**: User connects their Sui wallet (Sui Wallet, Ethos, etc.) to your app
+2. **Get Signer from Wallet**: The wallet provides a `Signer` interface after connection
+3. **Pass Signer to SDK**: Provide the signer to the SDK configuration
+4. **Transactions Trigger Wallet Popups**: When SDK methods are called, wallet popups appear for user approval
+
+## Complete Setup Example
+
+### Step 1: Install Wallet Dependencies
+
+```bash
+pnpm add @mysten/dapp-kit @mysten/sui @tanstack/react-query
+```
+
+### Step 2: Setup Wallet Provider (React)
+
+```typescript
+import { createNetworkConfig, SuiClientProvider, WalletProvider } from '@mysten/dapp-kit';
+import { getFullnodeUrl } from '@mysten/sui/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const { networkConfig } = createNetworkConfig({
+  testnet: { url: getFullnodeUrl('testnet') },
+  mainnet: { url: getFullnodeUrl('mainnet') },
+});
+
+const queryClient = new QueryClient();
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
+        <WalletProvider>
+          <YourApp />
+        </WalletProvider>
+      </SuiClientProvider>
+    </QueryClientProvider>
+  );
+}
+```
+
+### Step 3: Use SDK with Wallet Signer
+
+```typescript
+import { useCurrentWallet, ConnectButton } from '@mysten/dapp-kit';
+import { Walbucket } from '@walbucket/sdk';
+import { useEffect, useState } from 'react';
+
+function YourApp() {
+  const { currentWallet, isConnected } = useCurrentWallet();
+  const [walbucket, setWalbucket] = useState<Walbucket | null>(null);
+
+  useEffect(() => {
+    if (isConnected && currentWallet?.account) {
+      // Create SDK instance with user's wallet signer
+      const sdk = new Walbucket({
+        apiKey: 'your-api-key',
+        network: 'testnet',
+        gasStrategy: 'user-pays',
+        userSigner: currentWallet.account, // Signer from connected wallet
+      });
+      setWalbucket(sdk);
+    }
+  }, [isConnected, currentWallet]);
+
+  const handleUpload = async (file: File) => {
+    if (!walbucket) {
+      alert('Please connect your wallet');
+      return;
+    }
+
+    // Wallet popup will appear for user to approve transaction
+    try {
+      const result = await walbucket.upload(file, {
+        name: file.name,
+      });
+      console.log('Uploaded!', result.url);
+    } catch (error) {
+      if (error.message.includes('User rejected')) {
+        console.log('User cancelled transaction');
+      }
+    }
+  };
+
+  return (
+    <div>
+      <ConnectButton />
+      {!isConnected && <p>Connect your wallet to continue</p>}
+      {walbucket && (
+        <input 
+          type="file" 
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleUpload(file);
+          }} 
+        />
+      )}
+    </div>
+  );
+}
+```
+
+## Important Notes
+
+- **Never ask for private keys**: Always use wallet extensions to get signers
+- **Wallet popups are automatic**: When SDK methods are called, the wallet extension will show popups for user approval
+- **User must have SUI tokens**: For `user-pays` strategy, users need SUI tokens in their wallet for gas
+- **Signer comes from wallet**: The `userSigner` is provided by the wallet after connection, not from private keys
+- **Multiple transactions**: Each SDK method call (upload, delete, etc.) will trigger a wallet popup for user approval
+
+## Related
+
+- [Gas Strategies](/docs/advanced/gas-strategies) - Learn about gas payment options
+- [Configuration](/docs/configuration) - SDK configuration options

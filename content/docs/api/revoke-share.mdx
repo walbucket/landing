@@ -1,0 +1,238 @@
+````plaintext
+# Revoke Share
+
+Revoke a previously granted share by deleting the encryption policy. The recipient will lose access to the asset.
+
+## Method Signature
+
+```typescript
+revokeShare(policyId: string): Promise<void>
+```
+
+## Parameters
+
+### `policyId` (required)
+
+The ID of the encryption policy to revoke.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+- Obtained from `shareAsset()` or asset metadata
+
+## Returns
+
+`Promise<void>` - Resolves when share is revoked
+
+## Examples
+
+### Basic Revoke
+
+```typescript
+await walbucket.revokeShare(policyId);
+console.log('Share revoked successfully');
+```
+
+### Revoke with Confirmation
+
+```typescript
+async function revokeWithConfirmation(policyId: string, recipientAddress: string) {
+  if (confirm(`Revoke access for ${recipientAddress}?`)) {
+    try {
+      await walbucket.revokeShare(policyId);
+      alert('Access revoked successfully');
+    } catch (error) {
+      alert(`Failed to revoke: ${error.message}`);
+    }
+  }
+}
+```
+
+### Revoke All Shares
+
+```typescript
+async function revokeAllShares(assetId: string) {
+  const asset = await walbucket.getAsset(assetId);
+
+  if (!asset.policyId) {
+    console.log('No shares to revoke');
+    return;
+  }
+
+  // In practice, you'd need to track all policy IDs
+  // This is simplified for demonstration
+  const policyIds = await getAssetPolicyIds(assetId);
+
+  for (const policyId of policyIds) {
+    await walbucket.revokeShare(policyId);
+    console.log(`Revoked policy: ${policyId}`);
+  }
+}
+```
+
+### Time-Limited Share
+
+```typescript
+async function shareTemporarily(
+  assetId: string,
+  recipient: string,
+  durationMs: number
+) {
+  // Create share
+  const policyId = await walbucket.shareAsset(assetId, recipient);
+  console.log('Access granted');
+
+  // Auto-revoke after duration
+  setTimeout(async () => {
+    await walbucket.revokeShare(policyId);
+    console.log('Access revoked automatically');
+  }, durationMs);
+
+  return policyId;
+}
+
+// Usage: 24-hour access
+await shareTemporarily(assetId, recipientAddress, 24 * 60 * 60 * 1000);
+```
+
+### Revoke UI
+
+```typescript
+async function renderShareManagement(assetId: string) {
+  const asset = await walbucket.getAsset(assetId);
+  const shares = await getAssetShares(assetId); // Custom function
+
+  const container = document.createElement('div');
+
+  shares.forEach(share => {
+    const item = document.createElement('div');
+    item.innerHTML = `
+      <span>${share.recipient}</span>
+      <button onclick="handleRevoke('${share.policyId}')">
+        Revoke Access
+      </button>
+    `;
+    container.appendChild(item);
+  });
+
+  return container;
+}
+
+async function handleRevoke(policyId: string) {
+  await walbucket.revokeShare(policyId);
+  // Refresh UI
+  await renderShareManagement(assetId);
+}
+```
+
+## What Happens When You Revoke
+
+1. **Policy Deleted**: The encryption policy is removed from blockchain
+2. **Access Removed**: Recipient can no longer decrypt the asset
+3. **Immediate Effect**: Takes effect instantly
+4. **Permanent**: Cannot be undone (must reshare if needed)
+5. **Owner Unaffected**: Owner retains full access
+
+## Error Handling
+
+```typescript
+try {
+  await walbucket.revokeShare(policyId);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid policy ID');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('E_NOT_OWNER')) {
+      console.error('You do not own this policy');
+    } else if (error.message.includes('not found')) {
+      console.error('Policy not found (may already be revoked)');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Only policy creator (asset owner) can revoke
+- Revocation is immediate and permanent
+- Cannot revoke shareable links (use expiration instead)
+- Gas fees apply based on `gasStrategy`
+- Recipient loses access instantly
+- Multiple policies can exist (revoke individually)
+- Does not delete the asset itself
+
+## Use Cases
+
+### Access Management
+
+```typescript
+// Revoke when access is no longer needed
+await walbucket.revokeShare(policyId);
+```
+
+### Security Response
+
+```typescript
+// Revoke all access in security incident
+async function emergencyRevoke(assetId: string) {
+  const policies = await getAssetPolicies(assetId);
+
+  for (const policyId of policies) {
+    await walbucket.revokeShare(policyId);
+  }
+
+  console.log('All access revoked');
+}
+```
+
+### Team Member Removal
+
+```typescript
+// Revoke access when team member leaves
+async function revokeUserAccess(userAddress: string) {
+  const sharedAssets = await getUserSharedAssets(userAddress);
+
+  for (const asset of sharedAssets) {
+    const policy = await getPolicyForUser(asset.assetId, userAddress);
+    await walbucket.revokeShare(policy.id);
+  }
+}
+```
+
+### Conditional Access
+
+```typescript
+// Revoke based on conditions
+async function checkAndRevoke(policyId: string) {
+  const policy = await getPolicy(policyId);
+
+  // Custom business logic
+  if (policy.createdAt < Date.now() - 30 * 24 * 60 * 60 * 1000) {
+    await walbucket.revokeShare(policyId);
+    console.log('Revoked expired 30-day share');
+  }
+}
+```
+
+## Best Practices
+
+1. **Track Policy IDs**: Store policy IDs when creating shares
+2. **Audit Trail**: Log revocations for compliance
+3. **User Notification**: Notify users when access is revoked
+4. **Confirmation**: Require confirmation for revocation
+5. **Time Limits**: Use automatic revocation for temporary access
+
+## Limitations
+
+- Cannot revoke shareable links (they're public)
+- Cannot partially revoke (all or nothing per policy)
+- Requires policy ID (must track when sharing)
+
+## Related
+
+- [Share Asset](/docs/api/share-asset) - Create encrypted shares
+- [Create Shareable Link](/docs/api/create-shareable-link) - Public links
+- [Get Asset](/docs/api/get-asset) - View asset and policy info
+
+````

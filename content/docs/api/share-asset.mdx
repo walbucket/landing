@@ -1,0 +1,210 @@
+````plaintext
+# Share Asset
+
+Share an asset with another user by creating an encryption policy. The recipient can access the encrypted asset using their wallet.
+
+## Method Signature
+
+```typescript
+shareAsset(assetId: string, recipientAddress: string): Promise<string>
+```
+
+## Parameters
+
+### `assetId` (required)
+
+The ID of the asset to share.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+### `recipientAddress` (required)
+
+The wallet address of the recipient.
+
+- Type: `string`
+- Format: Sui address (0x...)
+
+## Returns
+
+`Promise<string>` - The policy ID of the created encryption policy
+
+## Examples
+
+### Basic Share
+
+```typescript
+const policyId = await walbucket.shareAsset(
+  assetId,
+  '0x789...' // recipient address
+);
+console.log('Asset shared, policy ID:', policyId);
+```
+
+### Share with Multiple Users
+
+```typescript
+const recipients = [
+  '0x111...',
+  '0x222...',
+  '0x333...'
+];
+
+for (const recipient of recipients) {
+  const policyId = await walbucket.shareAsset(assetId, recipient);
+  console.log(`Shared with ${recipient}`);
+}
+```
+
+### Share with Notification
+
+```typescript
+async function shareWithNotification(
+  assetId: string,
+  recipientAddress: string,
+  assetName: string
+) {
+  try {
+    const policyId = await walbucket.shareAsset(assetId, recipientAddress);
+
+    // Send notification to recipient
+    await sendNotification(recipientAddress, {
+      type: 'file-shared',
+      assetName,
+      policyId
+    });
+
+    return policyId;
+  } catch (error) {
+    console.error('Failed to share:', error);
+    throw error;
+  }
+}
+```
+
+### Share Interface
+
+```typescript
+async function handleShare(assetId: string) {
+  const recipient = prompt('Enter recipient wallet address:');
+
+  if (!recipient) return;
+
+  // Validate address format
+  if (!recipient.startsWith('0x') || recipient.length !== 66) {
+    alert('Invalid Sui address');
+    return;
+  }
+
+  try {
+    await walbucket.shareAsset(assetId, recipient);
+    alert('File shared successfully!');
+  } catch (error) {
+    alert(`Failed to share: ${error.message}`);
+  }
+}
+```
+
+## How Sharing Works
+
+1. **Encryption Policy**: Creates a policy on the blockchain
+2. **Access Control**: Only specified recipients can access
+3. **Decryption**: Recipients decrypt using their wallet
+4. **Ownership**: Original owner retains full control
+5. **Revocable**: Can be revoked at any time
+
+## Security
+
+- Assets are encrypted before sharing
+- Only recipients with the policy can decrypt
+- Blockchain-enforced access control
+- No intermediary has access to content
+- Owner can revoke access at any time
+
+## Error Handling
+
+```typescript
+try {
+  const policyId = await walbucket.shareAsset(assetId, recipient);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid asset ID or recipient address');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('E_NOT_OWNER')) {
+      console.error('You do not own this asset');
+    } else if (error.message.includes('already shared')) {
+      console.error('Asset already shared with this user');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Only asset owner can create shares
+- Creates encryption policy on blockchain
+- Each share requires a separate policy
+- Gas fees apply based on `gasStrategy`
+- Recipients need wallet to decrypt
+- Multiple policies can exist per asset
+- Shares are independent (revoking one doesn't affect others)
+
+## Use Cases
+
+### Collaboration
+
+```typescript
+// Share project files with team
+const teamMembers = ['0x111...', '0x222...', '0x333...'];
+for (const member of teamMembers) {
+  await walbucket.shareAsset(projectFileId, member);
+}
+```
+
+### Selective Access
+
+```typescript
+// Share specific files based on role
+if (user.role === 'admin') {
+  await walbucket.shareAsset(confidentialFileId, user.address);
+}
+```
+
+### Time-Limited Sharing
+
+```typescript
+// Share temporarily
+const policyId = await walbucket.shareAsset(assetId, recipient);
+
+// Revoke after 24 hours
+setTimeout(async () => {
+  await walbucket.revokeShare(policyId);
+}, 24 * 60 * 60 * 1000);
+```
+
+### Secure Document Sharing
+
+```typescript
+// Share sensitive document
+const policyId = await walbucket.shareAsset(documentId, clientAddress);
+
+// Log the share
+await logAuditEvent({
+  action: 'document_shared',
+  documentId,
+  recipient: clientAddress,
+  policyId,
+  timestamp: Date.now()
+});
+```
+
+## Related
+
+- [Create Shareable Link](/docs/api/create-shareable-link) - Create public share links
+- [Revoke Share](/docs/api/revoke-share) - Revoke access
+- [Upload](/docs/api/upload) - Upload with encryption
+- [Retrieve](/docs/api/retrieve) - Retrieve shared assets
+
+````

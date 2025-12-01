@@ -1,0 +1,157 @@
+````plaintext
+# Create Folder
+
+Create a new folder to organize your assets.
+
+## Method Signature
+
+```typescript
+createFolder(name: string, parentId?: string): Promise<string>
+```
+
+## Parameters
+
+### `name` (required)
+
+The name of the folder to create.
+
+- Type: `string`
+- Should be descriptive and unique within the parent
+
+### `parentId` (optional)
+
+The ID of the parent folder. If not provided, creates a root-level folder.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+## Returns
+
+`Promise<string>` - The folder ID of the newly created folder
+
+## Examples
+
+### Create Root Folder
+
+```typescript
+const folderId = await walbucket.createFolder('Documents');
+console.log('Folder created:', folderId);
+```
+
+### Create Nested Folder
+
+```typescript
+// Create parent folder
+const parentId = await walbucket.createFolder('Projects');
+
+// Create child folder
+const childId = await walbucket.createFolder('2024', parentId);
+
+console.log('Nested folder structure created');
+```
+
+### Create Folder Hierarchy
+
+```typescript
+async function createFolderHierarchy() {
+  // Create root
+  const rootId = await walbucket.createFolder('Media');
+
+  // Create categories
+  const photosId = await walbucket.createFolder('Photos', rootId);
+  const videosId = await walbucket.createFolder('Videos', rootId);
+
+  // Create subcategories
+  await walbucket.createFolder('2024', photosId);
+  await walbucket.createFolder('2023', photosId);
+
+  console.log('Folder hierarchy created');
+}
+```
+
+### Create with Error Handling
+
+```typescript
+async function createFolderSafely(name: string, parentId?: string) {
+  try {
+    const folderId = await walbucket.createFolder(name, parentId);
+    return { success: true, folderId };
+  } catch (error) {
+    if (error.message.includes('already exists')) {
+      return { success: false, error: 'Folder name already exists' };
+    }
+    return { success: false, error: error.message };
+  }
+}
+```
+
+## Folder Organization
+
+Folders help organize assets:
+- Group related files together
+- Create hierarchical structures
+- Apply policies at folder level
+- Easier browsing and management
+
+## Error Handling
+
+```typescript
+try {
+  const folderId = await walbucket.createFolder(name, parentId);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid folder name or parent ID');
+  } else if (error instanceof BlockchainError) {
+    console.error('Failed to create folder:', error.message);
+  }
+}
+```
+
+## Notes
+
+- Folder names should be unique within the same parent
+- Folders can be nested to any depth
+- Empty folders can exist
+- Folder IDs are Sui object IDs
+- Gas fees apply based on `gasStrategy`
+- Folders are owned by the creator
+
+## Use Cases
+
+### Project Organization
+
+```typescript
+// Organize by project
+const projectId = await walbucket.createFolder('Website Redesign');
+const assetsId = await walbucket.createFolder('Assets', projectId);
+const imagesId = await walbucket.createFolder('Images', assetsId);
+const iconsId = await walbucket.createFolder('Icons', assetsId);
+```
+
+### Time-Based Organization
+
+```typescript
+// Organize by date
+const year = new Date().getFullYear();
+const month = new Date().toLocaleString('default', { month: 'long' });
+
+const yearId = await walbucket.createFolder(String(year));
+const monthId = await walbucket.createFolder(month, yearId);
+```
+
+### Category Organization
+
+```typescript
+// Organize by type
+const docsId = await walbucket.createFolder('Documents');
+const mediaId = await walbucket.createFolder('Media');
+const archivesId = await walbucket.createFolder('Archives');
+```
+
+## Related
+
+- [Move to Folder](/docs/api/move-to-folder) - Move assets into folders
+- [Delete Folder](/docs/api/delete-folder) - Delete folders
+- [List](/docs/api/list) - List assets (includes folder info)
+
+````

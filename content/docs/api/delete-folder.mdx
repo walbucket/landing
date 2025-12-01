@@ -1,0 +1,176 @@
+````plaintext
+# Delete Folder
+
+Delete a folder. The folder must be empty (contain no assets) to be deleted.
+
+## Method Signature
+
+```typescript
+deleteFolder(folderId: string): Promise<void>
+```
+
+## Parameters
+
+### `folderId` (required)
+
+The ID of the folder to delete.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+## Returns
+
+`Promise<void>` - Resolves when folder is deleted
+
+## Examples
+
+### Basic Delete
+
+```typescript
+await walbucket.deleteFolder(folderId);
+console.log('Folder deleted successfully');
+```
+
+### Delete with Confirmation
+
+```typescript
+async function deleteFolder(folderId: string, folderName: string) {
+  if (confirm(`Delete folder "${folderName}"?`)) {
+    try {
+      await walbucket.deleteFolder(folderId);
+      alert('Folder deleted successfully');
+    } catch (error) {
+      alert(`Failed to delete: ${error.message}`);
+    }
+  }
+}
+```
+
+### Delete Empty Folders
+
+```typescript
+async function deleteEmptyFolders() {
+  const assets = await walbucket.list();
+
+  // Get all unique folder IDs
+  const folderIds = new Set(
+    assets
+      .filter(a => a.folderId)
+      .map(a => a.folderId)
+  );
+
+  // Try to delete folders with no assets
+  for (const folderId of folderIds) {
+    const assetsInFolder = assets.filter(a => a.folderId === folderId);
+
+    if (assetsInFolder.length === 0) {
+      try {
+        await walbucket.deleteFolder(folderId);
+        console.log(`Deleted empty folder: ${folderId}`);
+      } catch (error) {
+        console.error(`Failed to delete ${folderId}:`, error.message);
+      }
+    }
+  }
+}
+```
+
+### Safe Delete with Validation
+
+```typescript
+async function safeFolderDelete(folderId: string) {
+  // Check if folder has assets
+  const assets = await walbucket.list();
+  const folderAssets = assets.filter(a => a.folderId === folderId);
+
+  if (folderAssets.length > 0) {
+    throw new Error(`Cannot delete folder with ${folderAssets.length} assets`);
+  }
+
+  // Delete folder
+  await walbucket.deleteFolder(folderId);
+}
+```
+
+## Important Notes
+
+- ⚠️ **Folder must be empty** - Cannot delete folders containing assets
+- ⚠️ **Move assets first** - Use `moveToFolder` to relocate assets before deletion
+- Only folder owner can delete it
+- Deletion is permanent and cannot be undone
+- Gas fees apply based on `gasStrategy`
+
+## Error Handling
+
+```typescript
+try {
+  await walbucket.deleteFolder(folderId);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid folder ID');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('not empty')) {
+      console.error('Folder contains assets. Move or delete them first.');
+    } else if (error.message.includes('E_NOT_OWNER')) {
+      console.error('You do not own this folder');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Workflow for Deleting Non-Empty Folders
+
+To delete a folder with assets:
+
+```typescript
+async function deleteNonEmptyFolder(folderId: string) {
+  // 1. Get all assets in the folder
+  const assets = await walbucket.list();
+  const folderAssets = assets.filter(a => a.folderId === folderId);
+
+  // 2. Move assets to root (or delete them)
+  for (const asset of folderAssets) {
+    await walbucket.moveToFolder(asset.assetId, null); // null = root
+    // OR: await walbucket.delete(asset.assetId);
+  }
+
+  // 3. Now delete the empty folder
+  await walbucket.deleteFolder(folderId);
+}
+```
+
+## Use Cases
+
+### Cleanup Empty Folders
+
+```typescript
+// After reorganization
+await safeFolderDelete(oldFolderId);
+```
+
+### Remove Temporary Folders
+
+```typescript
+// Delete temp folder after processing
+const tempId = await walbucket.createFolder('temp');
+// ... use folder ...
+await walbucket.deleteFolder(tempId);
+```
+
+### Folder Reorganization
+
+```typescript
+// Move assets then delete old structure
+await moveAssetsToNewStructure();
+await deleteFolder(oldFolderId);
+```
+
+## Related
+
+- [Create Folder](/docs/api/create-folder) - Create new folders
+- [Move to Folder](/docs/api/move-to-folder) - Move assets between folders
+- [List](/docs/api/list) - List assets and folders
+
+````

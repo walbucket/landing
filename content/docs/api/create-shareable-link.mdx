@@ -1,0 +1,226 @@
+````plaintext
+# Create Shareable Link
+
+Create a public shareable link for an asset. Anyone with the link can access the asset without authentication.
+
+## Method Signature
+
+```typescript
+createShareableLink(assetId: string, expiresIn?: number): Promise<string>
+```
+
+## Parameters
+
+### `assetId` (required)
+
+The ID of the asset to create a link for.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+### `expiresIn` (optional)
+
+Link expiration time in seconds. If not provided, link does not expire.
+
+- Type: `number`
+- Example: `86400` for 24 hours
+
+## Returns
+
+`Promise<string>` - The shareable URL
+
+## Examples
+
+### Create Permanent Link
+
+```typescript
+const url = await walbucket.createShareableLink(assetId);
+console.log('Share this link:', url);
+```
+
+### Create Expiring Link
+
+```typescript
+// Link expires in 24 hours
+const url = await walbucket.createShareableLink(assetId, 86400);
+console.log('Link expires in 24 hours:', url);
+```
+
+### Copy to Clipboard
+
+```typescript
+async function copyShareLink(assetId: string) {
+  try {
+    const url = await walbucket.createShareableLink(assetId);
+    await navigator.clipboard.writeText(url);
+    alert('Link copied to clipboard!');
+  } catch (error) {
+    alert(`Failed to create link: ${error.message}`);
+  }
+}
+```
+
+### Share Dialog
+
+```typescript
+async function showShareDialog(assetId: string, assetName: string) {
+  const url = await walbucket.createShareableLink(assetId);
+
+  const dialog = document.createElement('div');
+  dialog.innerHTML = `
+    <h3>Share "${assetName}"</h3>
+    <input type="text" value="${url}" readonly />
+    <button onclick="navigator.clipboard.writeText('${url}')">
+      Copy Link
+    </button>
+    <p>Anyone with this link can access the file</p>
+  `;
+
+  document.body.appendChild(dialog);
+}
+```
+
+### Time-Limited Sharing
+
+```typescript
+const timeOptions = {
+  '1 hour': 3600,
+  '1 day': 86400,
+  '1 week': 604800,
+  '1 month': 2592000
+};
+
+async function createTimedLink(assetId: string, duration: string) {
+  const seconds = timeOptions[duration];
+  const url = await walbucket.createShareableLink(assetId, seconds);
+
+  return {
+    url,
+    expiresAt: new Date(Date.now() + seconds * 1000)
+  };
+}
+
+// Usage
+const { url, expiresAt } = await createTimedLink(assetId, '1 day');
+console.log(`Link expires: ${expiresAt.toLocaleString()}`);
+```
+
+### Social Sharing
+
+```typescript
+async function shareOnSocial(assetId: string, platform: string) {
+  const url = await walbucket.createShareableLink(assetId);
+
+  const shareUrls = {
+    twitter: `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`
+  };
+
+  window.open(shareUrls[platform], '_blank');
+}
+```
+
+## Link Format
+
+Generated links follow this format:
+```
+https://walrus.site/<blob-id>
+```
+
+## Public Access
+
+⚠️ **Important**: Links created with this method are **public**:
+- No authentication required
+- Anyone with the link can access the file
+- Link remains valid until expiration (if set)
+- Consider using `shareAsset()` for private sharing
+
+## Error Handling
+
+```typescript
+try {
+  const url = await walbucket.createShareableLink(assetId, expiresIn);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid asset ID');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('E_NOT_OWNER')) {
+      console.error('You do not own this asset');
+    } else if (error.message.includes('not found')) {
+      console.error('Asset not found');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Only asset owner can create shareable links
+- Links are public (no authentication needed)
+- Optional expiration time for security
+- Links use Walrus aggregator infrastructure
+- No gas fees after initial asset creation
+- Links remain valid after owner revokes other shares
+- Cannot revoke shareable links once created
+
+## Use Cases
+
+### Public File Sharing
+
+```typescript
+// Share file publicly
+const url = await walbucket.createShareableLink(imageId);
+// Post URL on social media, embed in website, etc.
+```
+
+### Temporary Downloads
+
+```typescript
+// Create 1-hour download link
+const url = await walbucket.createShareableLink(fileId, 3600);
+// Send to user via email
+```
+
+### Content Distribution
+
+```typescript
+// Generate links for all public assets
+const assets = await walbucket.list();
+const publicAssets = assets.filter(a => a.category === 'public');
+
+const links = await Promise.all(
+  publicAssets.map(a => walbucket.createShareableLink(a.assetId))
+);
+```
+
+### QR Code Generation
+
+```typescript
+async function generateQRCode(assetId: string) {
+  const url = await walbucket.createShareableLink(assetId);
+
+  // Generate QR code from URL
+  const qrCode = await QRCode.toDataURL(url);
+
+  return qrCode;
+}
+```
+
+## Security Considerations
+
+- Use expiration times for sensitive content
+- Consider `shareAsset()` for private sharing
+- Links cannot be revoked once created
+- Monitor access patterns
+- Use short expiration times for confidential files
+
+## Related
+
+- [Share Asset](/docs/api/share-asset) - Share with specific users (private)
+- [Revoke Share](/docs/api/revoke-share) - Revoke private shares
+- [Retrieve](/docs/api/retrieve) - Get asset data
+
+````

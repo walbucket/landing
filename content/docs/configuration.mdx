@@ -9,7 +9,7 @@ Configure the Walbucket SDK to match your needs. All configuration is done when 
 Your API key for authentication. Get your API key from the Walbucket dashboard.
 
 ```typescript
-apiKey: 'your-api-key'
+apiKey: "your-api-key";
 ```
 
 ### Gas Strategy Fields (one required)
@@ -17,7 +17,7 @@ apiKey: 'your-api-key'
 Depending on your `gasStrategy`, you need to provide either:
 
 - **`sponsorPrivateKey`** - Required if using `gasStrategy: 'developer-sponsored'` (default)
-- **`userSigner`** - Required if using `gasStrategy: 'user-pays'`
+- **`signAndExecuteTransaction`** + **`userAddress`** - Required if using `gasStrategy: 'user-pays'`
 
 ## Optional Fields
 
@@ -79,22 +79,24 @@ These fields are usually auto-detected and don't need to be set:
 interface WalbucketConfig {
   // Required
   apiKey: string;
-  
+
   // Required based on gasStrategy choice
   sponsorPrivateKey?: string; // Required if gasStrategy is 'developer-sponsored'
-  userSigner?: Signer; // Required if gasStrategy is 'user-pays'
-  
+  signAndExecuteTransaction?: SignAndExecuteTransaction; // Required if gasStrategy is 'user-pays'
+  userAddress?: string; // Required if gasStrategy is 'user-pays'
+
   // Optional with smart defaults
-  network?: 'testnet' | 'mainnet' | 'devnet' | 'localnet'; // Default: 'testnet'
+  network?: "testnet" | "mainnet" | "devnet" | "localnet"; // Default: 'testnet'
   encryption?: boolean; // Default: true
-  gasStrategy?: 'developer-sponsored' | 'user-pays'; // Default: 'developer-sponsored'
-  
+  gasStrategy?: "developer-sponsored" | "user-pays"; // Default: 'developer-sponsored'
+
   // Auto-detected (usually don't need to set)
   packageId?: string; // Auto-detected from network
   walrusPublisherUrl?: string; // Auto-detected from network
   walrusAggregatorUrl?: string; // Auto-detected from network
   sealServerIds?: string[]; // Auto-detected from network
   cacheTTL?: number; // Default: 3600 seconds
+  useGrpc?: boolean; // Default: true
 }
 ```
 
@@ -104,9 +106,9 @@ interface WalbucketConfig {
 
 ```typescript
 const walbucket = new Walbucket({
-  apiKey: 'your-api-key',
-  network: 'testnet',
-  sponsorPrivateKey: 'your-private-key',
+  apiKey: "your-api-key",
+  network: "testnet",
+  sponsorPrivateKey: "your-private-key",
 });
 ```
 
@@ -114,9 +116,9 @@ const walbucket = new Walbucket({
 
 ```typescript
 const walbucket = new Walbucket({
-  apiKey: 'your-api-key',
-  network: 'mainnet',
-  sponsorPrivateKey: 'your-private-key',
+  apiKey: "your-api-key",
+  network: "mainnet",
+  sponsorPrivateKey: "your-private-key",
 });
 ```
 
@@ -124,9 +126,9 @@ const walbucket = new Walbucket({
 
 ```typescript
 const walbucket = new Walbucket({
-  apiKey: 'your-api-key',
-  network: 'testnet',
-  sponsorPrivateKey: 'your-private-key',
+  apiKey: "your-api-key",
+  network: "testnet",
+  sponsorPrivateKey: "your-private-key",
   encryption: false,
 });
 ```
@@ -134,21 +136,33 @@ const walbucket = new Walbucket({
 ### User-Pays Gas Strategy
 
 ```typescript
-const walbucket = new Walbucket({
-  apiKey: 'your-api-key',
-  network: 'testnet',
-  gasStrategy: 'user-pays',
-  userSigner: userSigner, // From connected wallet
-});
+import {
+  useSignAndExecuteTransaction,
+  useCurrentAccount,
+} from "@mysten/dapp-kit";
+
+function MyComponent() {
+  const { mutateAsync: signAndExecuteTransaction } =
+    useSignAndExecuteTransaction();
+  const currentAccount = useCurrentAccount();
+
+  const walbucket = new Walbucket({
+    apiKey: "your-api-key",
+    network: "testnet",
+    gasStrategy: "user-pays",
+    signAndExecuteTransaction,
+    userAddress: currentAccount?.address,
+  });
+}
 ```
 
 ### Custom Cache TTL
 
 ```typescript
 const walbucket = new Walbucket({
-  apiKey: 'your-api-key',
-  network: 'testnet',
-  sponsorPrivateKey: 'your-private-key',
+  apiKey: "your-api-key",
+  network: "testnet",
+  sponsorPrivateKey: "your-private-key",
   cacheTTL: 7200, // 2 hours
 });
 ```

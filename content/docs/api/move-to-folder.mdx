@@ -1,0 +1,219 @@
+````plaintext
+# Move to Folder
+
+Move an asset into a folder or to the root level. Organizes assets into hierarchical structures.
+
+## Method Signature
+
+```typescript
+moveToFolder(assetId: string, folderId: string | null): Promise<void>
+```
+
+## Parameters
+
+### `assetId` (required)
+
+The ID of the asset to move.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+### `folderId` (required)
+
+The destination folder ID, or `null` to move to root level.
+
+- Type: `string | null`
+- Format: Sui object ID (0x...) or `null`
+
+## Returns
+
+`Promise<void>` - Resolves when move is complete
+
+## Examples
+
+### Move to Folder
+
+```typescript
+await walbucket.moveToFolder(assetId, folderId);
+console.log('Asset moved to folder');
+```
+
+### Move to Root
+
+```typescript
+// Move asset out of folder to root level
+await walbucket.moveToFolder(assetId, null);
+console.log('Asset moved to root');
+```
+
+### Move Multiple Files
+
+```typescript
+const assetIds = ['0x123...', '0x456...', '0x789...'];
+const targetFolder = '0xabc...';
+
+for (const assetId of assetIds) {
+  await walbucket.moveToFolder(assetId, targetFolder);
+}
+
+console.log(`Moved ${assetIds.length} files`);
+```
+
+### Organize by Type
+
+```typescript
+async function organizeByType() {
+  // Create folders
+  const imagesFolder = await walbucket.createFolder('Images');
+  const documentsFolder = await walbucket.createFolder('Documents');
+  const videosFolder = await walbucket.createFolder('Videos');
+
+  // Get all assets
+  const assets = await walbucket.list();
+
+  // Move each asset to appropriate folder
+  for (const asset of assets) {
+    if (asset.contentType.startsWith('image/')) {
+      await walbucket.moveToFolder(asset.assetId, imagesFolder);
+    } else if (asset.contentType.startsWith('video/')) {
+      await walbucket.moveToFolder(asset.assetId, videosFolder);
+    } else if (asset.contentType.includes('pdf') ||
+               asset.contentType.includes('document')) {
+      await walbucket.moveToFolder(asset.assetId, documentsFolder);
+    }
+  }
+
+  console.log('Files organized by type');
+}
+```
+
+### Move with Drag and Drop
+
+```typescript
+async function handleFileDrop(assetId: string, targetFolderId: string | null) {
+  try {
+    await walbucket.moveToFolder(assetId, targetFolderId);
+    showToast('File moved successfully');
+  } catch (error) {
+    showToast(`Failed to move: ${error.message}`, 'error');
+  }
+}
+```
+
+### Batch Move with Progress
+
+```typescript
+async function batchMove(
+  assetIds: string[],
+  folderId: string | null,
+  onProgress?: (current: number, total: number) => void
+) {
+  for (let i = 0; i < assetIds.length; i++) {
+    await walbucket.moveToFolder(assetIds[i], folderId);
+    onProgress?.(i + 1, assetIds.length);
+  }
+}
+
+// Usage
+await batchMove(selectedFiles, targetFolder, (current, total) => {
+  console.log(`Moving files: ${current}/${total}`);
+});
+```
+
+## Organization Patterns
+
+### Time-Based Organization
+
+```typescript
+// Organize by upload date
+const assets = await walbucket.list();
+
+for (const asset of assets) {
+  const date = new Date(asset.createdAt);
+  const year = date.getFullYear();
+  const month = date.toLocaleString('default', { month: 'long' });
+
+  // Create year folder if needed
+  let yearFolderId = await findOrCreateFolder(String(year));
+  // Create month folder if needed
+  let monthFolderId = await findOrCreateFolder(month, yearFolderId);
+
+  await walbucket.moveToFolder(asset.assetId, monthFolderId);
+}
+```
+
+### Project-Based Organization
+
+```typescript
+// Move project files to project folder
+const projectAssets = assets.filter(a =>
+  a.tags.includes('project-alpha')
+);
+
+const projectFolder = await walbucket.createFolder('Project Alpha');
+
+for (const asset of projectAssets) {
+  await walbucket.moveToFolder(asset.assetId, projectFolder);
+}
+```
+
+## Error Handling
+
+```typescript
+try {
+  await walbucket.moveToFolder(assetId, folderId);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid asset or folder ID');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('E_NOT_OWNER')) {
+      console.error('You do not own this asset');
+    } else if (error.message.includes('folder not found')) {
+      console.error('Target folder does not exist');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Only asset owner can move assets
+- Pass `null` as `folderId` to move to root level
+- Moving is instant (just updates metadata)
+- Asset content and ID remain unchanged
+- Can move between folders or to/from root
+- Gas fees apply based on `gasStrategy`
+
+## Use Cases
+
+### File Organization
+
+Clean up disorganized files:
+```typescript
+await organizeByType();
+```
+
+### Folder Restructuring
+
+Move files when reorganizing:
+```typescript
+await walbucket.moveToFolder(assetId, newFolderId);
+```
+
+### Drag and Drop UI
+
+Implement drag-and-drop file management:
+```typescript
+onDrop={(assetId, folderId) => moveToFolder(assetId, folderId)}
+```
+
+## Related
+
+- [Create Folder](/docs/api/create-folder) - Create folders
+- [Delete Folder](/docs/api/delete-folder) - Delete folders
+- [List](/docs/api/list) - List assets with folder info
+- [Copy](/docs/api/copy) - Copy asset to new location
+
+````

@@ -1,0 +1,140 @@
+````plaintext
+# Rename Asset
+
+Rename an asset by changing its name. The asset must be owned by the current user.
+
+## Method Signature
+
+```typescript
+rename(assetId: string, newName: string): Promise<void>
+```
+
+## Parameters
+
+### `assetId` (required)
+
+The asset ID to rename.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+### `newName` (required)
+
+The new name for the asset.
+
+- Type: `string`
+- Include file extension if applicable
+
+## Returns
+
+`Promise<void>` - Resolves when rename is complete
+
+## Examples
+
+### Basic Rename
+
+```typescript
+await walbucket.rename('0x123...', 'new-name.jpg');
+console.log('Asset renamed successfully');
+```
+
+### Rename with Validation
+
+```typescript
+const newName = 'updated-document.pdf';
+
+// Validate new name
+if (!newName.trim()) {
+  throw new Error('Name cannot be empty');
+}
+
+await walbucket.rename(assetId, newName);
+console.log(`Renamed to: ${newName}`);
+```
+
+### Interactive Rename
+
+```typescript
+async function renameFile(assetId: string, currentName: string) {
+  const newName = prompt('Enter new name:', currentName);
+
+  if (newName && newName !== currentName) {
+    try {
+      await walbucket.rename(assetId, newName);
+      alert('File renamed successfully');
+      // Refresh file list
+      await refreshFiles();
+    } catch (error) {
+      alert(`Failed to rename: ${error.message}`);
+    }
+  }
+}
+```
+
+### Batch Rename
+
+```typescript
+// Rename multiple files with a pattern
+const assets = await walbucket.list();
+const imagesToRename = assets.filter(a =>
+  a.contentType.startsWith('image/') &&
+  a.name.startsWith('old-')
+);
+
+for (const asset of imagesToRename) {
+  const newName = asset.name.replace('old-', 'new-');
+  await walbucket.rename(asset.assetId, newName);
+  console.log(`Renamed: ${asset.name} → ${newName}`);
+}
+```
+
+## Error Handling
+
+```typescript
+try {
+  await walbucket.rename(assetId, newName);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid asset ID or name');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('E_NOT_OWNER')) {
+      console.error('You do not own this asset');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Only the asset owner can rename the asset
+- Name change is recorded on the blockchain
+- Blob ID and content remain unchanged
+- File extension should be included in the new name
+- Cache is automatically cleared after rename
+- Gas fees apply based on `gasStrategy`
+
+## Common Errors
+
+### E_NOT_OWNER (Error Code 0)
+
+The asset is not owned by the current user. This happens when:
+- Asset was uploaded by a different wallet
+- Using different gas strategies (user-pays vs developer-sponsored)
+
+**Solution**: Ensure you're using the same wallet that uploaded the file.
+
+### Transaction Rejected
+
+User cancelled the transaction popup.
+
+**Solution**: This is expected behavior when using `user-pays` strategy.
+
+## Related
+
+- [Copy](/docs/api/copy) - Duplicate an asset with new name
+- [Get Asset](/docs/api/get-asset) - Get asset metadata
+- [List](/docs/api/list) - List all assets
+
+````

@@ -18,15 +18,46 @@ yarn add @walbucket/sdk
 
 First, import and initialize the SDK with your API key:
 
-```typescript
-import { Walbucket } from '@walbucket/sdk';
+### Developer-Sponsored (Default)
 
-// Initialize SDK
+Developer pays gas fees - best user experience:
+
+```typescript
+import { Walbucket } from "@walbucket/sdk";
+
+// Initialize SDK with developer-sponsored gas
 const walbucket = new Walbucket({
-  apiKey: 'your-api-key',
-  network: 'testnet',
-  sponsorPrivateKey: 'your-private-key',
+  apiKey: "your-api-key",
+  network: "testnet",
+  gasStrategy: "developer-sponsored", // default
+  sponsorPrivateKey: "your-private-key",
 });
+```
+
+### User-Pays (React + Wallet)
+
+Users pay their own gas fees:
+
+```typescript
+import {
+  useSignAndExecuteTransaction,
+  useCurrentAccount,
+} from "@mysten/dapp-kit";
+import { Walbucket } from "@walbucket/sdk";
+
+function MyComponent() {
+  const { mutateAsync: signAndExecuteTransaction } =
+    useSignAndExecuteTransaction();
+  const currentAccount = useCurrentAccount();
+
+  const walbucket = new Walbucket({
+    apiKey: "your-api-key",
+    network: "testnet",
+    gasStrategy: "user-pays",
+    signAndExecuteTransaction,
+    userAddress: currentAccount?.address,
+  });
+}
 ```
 
 ## Upload a File
@@ -35,8 +66,8 @@ Upload files with a simple method call:
 
 ```typescript
 const result = await walbucket.upload(file, {
-  name: 'my-image.jpg',
-  folder: 'products',
+  name: "my-image.jpg",
+  folder: "products",
 });
 
 console.log(result.assetId); // Sui object ID
@@ -44,6 +75,7 @@ console.log(result.url); // Automatically generated file URL
 ```
 
 The `upload` method accepts various file formats:
+
 - `File` (from file input)
 - `Blob`
 - `Buffer`
@@ -56,9 +88,9 @@ Retrieve files by their asset ID:
 
 ```typescript
 const retrieveResult = await walbucket.retrieve(result.assetId);
-console.log('File data:', retrieveResult.data);
-console.log('File URL:', retrieveResult.url);
-console.log('Metadata:', retrieveResult.metadata);
+console.log("File data:", retrieveResult.data);
+console.log("File URL:", retrieveResult.url);
+console.log("Metadata:", retrieveResult.metadata);
 ```
 
 ## Delete a File
@@ -74,26 +106,26 @@ await walbucket.delete(result.assetId);
 Here's a complete example that demonstrates the basic workflow:
 
 ```typescript
-import { Walbucket } from '@walbucket/sdk';
+import { Walbucket } from "@walbucket/sdk";
 
 // Initialize
 const walbucket = new Walbucket({
-  apiKey: 'your-api-key',
-  network: 'testnet',
-  sponsorPrivateKey: 'your-private-key',
+  apiKey: "your-api-key",
+  network: "testnet",
+  sponsorPrivateKey: "your-private-key",
 });
 
 // Upload
 const uploadResult = await walbucket.upload(file, {
-  name: 'photo.jpg',
-  folder: 'gallery',
+  name: "photo.jpg",
+  folder: "gallery",
 });
 
-console.log('Uploaded!', uploadResult.url);
+console.log("Uploaded!", uploadResult.url);
 
 // Retrieve
 const retrieveResult = await walbucket.retrieve(uploadResult.assetId);
-console.log('File size:', retrieveResult.metadata.size);
+console.log("File size:", retrieveResult.metadata.size);
 
 // Delete (when needed)
 await walbucket.delete(uploadResult.assetId);

@@ -1,0 +1,156 @@
+````plaintext
+# Copy Asset
+
+Create a duplicate of an asset with a new name. The copy references the same blob data but creates a new independent asset on the blockchain.
+
+## Method Signature
+
+```typescript
+copy(assetId: string, newName: string): Promise<void>
+```
+
+## Parameters
+
+### `assetId` (required)
+
+The asset ID to copy.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+### `newName` (required)
+
+Name for the copied asset.
+
+- Type: `string`
+- Include file extension if applicable
+
+## Returns
+
+`Promise<void>` - Resolves when copy is complete
+
+## Examples
+
+### Basic Copy
+
+```typescript
+await walbucket.copy('0x123...', 'copy-of-file.jpg');
+console.log('Asset copied successfully');
+```
+
+### Copy with Auto-Generated Name
+
+```typescript
+const asset = await walbucket.getAsset(assetId);
+const copyName = `Copy of ${asset.name}`;
+
+await walbucket.copy(assetId, copyName);
+```
+
+### Copy Multiple Files
+
+```typescript
+const assetsToCopy = ['0x123...', '0x456...', '0x789...'];
+
+for (const assetId of assetsToCopy) {
+  const asset = await walbucket.getAsset(assetId);
+  const newName = `backup-${asset.name}`;
+
+  await walbucket.copy(assetId, newName);
+  console.log(`Copied: ${asset.name} → ${newName}`);
+}
+```
+
+### Copy with Confirmation
+
+```typescript
+async function copyFile(assetId: string) {
+  const asset = await walbucket.getAsset(assetId);
+
+  if (confirm(`Create a copy of "${asset.name}"?`)) {
+    const newName = prompt('Enter name for copy:', `Copy of ${asset.name}`);
+
+    if (newName) {
+      await walbucket.copy(assetId, newName);
+      alert('File copied successfully');
+    }
+  }
+}
+```
+
+## How It Works
+
+When you copy an asset:
+1. A new asset object is created on the blockchain
+2. The new asset references the same blob data (no re-upload)
+3. Metadata is duplicated from the original
+4. The copy is owned by the user who initiated the copy
+5. Both assets exist independently
+
+## Storage Efficiency
+
+Copying is storage-efficient:
+- ✅ No duplicate blob storage (same blob referenced)
+- ✅ Only blockchain metadata is duplicated
+- ✅ Fast operation (no file upload needed)
+- ❌ Each copy counts as a separate asset
+
+## Error Handling
+
+```typescript
+try {
+  await walbucket.copy(assetId, newName);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid asset ID or name');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('E_NOT_OWNER')) {
+      console.error('You do not own this asset');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Original and copy are independent assets
+- Same blob data is referenced (no re-upload)
+- Copy inherits metadata from original (tags, description, etc.)
+- Only asset owner can create copies
+- Each copy has a unique asset ID
+- Gas fees apply based on `gasStrategy`
+
+## Use Cases
+
+### Backup
+
+Create backups before modifications:
+```typescript
+await walbucket.copy(assetId, `backup-${originalName}`);
+// Now safe to modify or delete original
+```
+
+### Versioning
+
+Maintain versions of files:
+```typescript
+const version = 2;
+await walbucket.copy(assetId, `file-v${version}.jpg`);
+```
+
+### Templates
+
+Duplicate templates for new projects:
+```typescript
+await walbucket.copy(templateId, `project-${projectName}.json`);
+```
+
+## Related
+
+- [Rename](/docs/api/rename) - Change asset name
+- [Upload](/docs/api/upload) - Upload new assets
+- [Delete](/docs/api/delete) - Delete assets
+
+````

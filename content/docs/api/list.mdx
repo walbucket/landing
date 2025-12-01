@@ -1,0 +1,148 @@
+````plaintext
+# List Assets
+
+List all assets owned by an address. Retrieves complete metadata for all assets.
+
+## Method Signature
+
+```typescript
+list(owner?: string): Promise<AssetMetadata[]>
+```
+
+## Parameters
+
+### `owner` (optional)
+
+Wallet address to query assets for. If not provided, uses the current user's address.
+
+- Type: `string`
+- Default: Current user's address (from `userAddress` or sponsor address)
+
+## Returns
+
+`Promise<AssetMetadata[]>` - Array of asset metadata objects:
+
+```typescript
+interface AssetMetadata {
+  assetId: string;         // Sui object ID
+  blobId: string;          // Walrus blob ID
+  name: string;            // Asset name
+  contentType: string;     // MIME type
+  size: number;            // File size in bytes
+  createdAt: number;       // Creation timestamp
+  updatedAt: number;       // Last update timestamp
+  owner: string;           // Owner address
+  url: string;             // Automatically generated URL
+  policyId?: string;       // Encryption policy ID (if encrypted)
+  folderId?: string;       // Folder ID (if in folder)
+  tags: string[];          // Tags
+  description: string;     // Description
+  category: string;        // Category
+  width?: number;          // Image/video width
+  height?: number;         // Image/video height
+  thumbnailBlobId?: string; // Thumbnail blob ID
+}
+```
+
+## Examples
+
+### List Current User's Assets
+
+```typescript
+// List all assets for the current user
+const assets = await walbucket.list();
+
+console.log(`Found ${assets.length} assets`);
+assets.forEach(asset => {
+  console.log(`- ${asset.name} (${asset.size} bytes)`);
+});
+```
+
+### List Assets for Specific Address
+
+```typescript
+// List assets for a specific wallet address
+const assets = await walbucket.list('0x123...');
+
+console.log(`User has ${assets.length} assets`);
+```
+
+### Filter and Process Assets
+
+```typescript
+// Get all assets
+const allAssets = await walbucket.list();
+
+// Filter by content type
+const images = allAssets.filter(asset =>
+  asset.contentType.startsWith('image/')
+);
+
+// Filter by folder
+const folderAssets = allAssets.filter(asset =>
+  asset.folderId === 'folder-id'
+);
+
+// Filter encrypted assets
+const encryptedAssets = allAssets.filter(asset =>
+  asset.policyId !== null
+);
+
+// Sort by date
+const recentAssets = [...allAssets].sort((a, b) =>
+  b.createdAt - a.createdAt
+).slice(0, 10);
+```
+
+### Display Asset Gallery
+
+```typescript
+const assets = await walbucket.list();
+
+// Display in UI
+assets.forEach(asset => {
+  const card = document.createElement('div');
+  card.innerHTML = `
+    <h3>${asset.name}</h3>
+    <img src="${asset.url}" alt="${asset.name}" />
+    <p>${formatFileSize(asset.size)}</p>
+    <p>Uploaded: ${new Date(asset.createdAt).toLocaleDateString()}</p>
+  `;
+  gallery.appendChild(card);
+});
+```
+
+## Performance
+
+- Results are cached based on `cacheTTL` configuration
+- Large result sets are handled efficiently
+- Consider pagination for UI display with many assets
+
+## Error Handling
+
+```typescript
+try {
+  const assets = await walbucket.list();
+} catch (error) {
+  if (error instanceof BlockchainError) {
+    console.error('Failed to query blockchain:', error.message);
+  }
+}
+```
+
+## Notes
+
+- Returns all assets owned by the specified address
+- Includes complete metadata without file data
+- URLs are automatically generated for each asset
+- Results include both encrypted and public assets
+- Empty array returned if no assets found
+
+## Related
+
+- [Get Asset](/docs/api/get-asset) - Get single asset metadata
+- [Upload](/docs/api/upload) - Upload new assets
+- [Delete](/docs/api/delete) - Delete assets
+- [Retrieve](/docs/api/retrieve) - Get asset with file data
+
+````

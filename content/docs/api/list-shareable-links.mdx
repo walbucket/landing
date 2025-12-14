@@ -1,0 +1,283 @@
+# List Shareable Links
+
+Query all shareable links created by a specific address. View all public links you've created for your assets.
+
+## Method Signature
+
+```typescript
+listShareableLinks(owner?: string): Promise<ShareableLink[]>
+```
+
+## Parameters
+
+### `owner` (optional)
+
+The address to query shareable links for. If not provided, uses the current user's address.
+
+- Type: `string`
+- Format: Sui address (0x...)
+- Default: Current user's address (from wallet or sponsor)
+
+## Returns
+
+`Promise<ShareableLink[]>` - Array of shareable link objects
+
+### ShareableLink Object
+
+```typescript
+interface ShareableLink {
+  id: string;              // Link ID
+  assetId: string;         // Asset ID
+  owner: string;           // Link creator address
+  shareToken: string;      // Unique token for the link
+  canRead: boolean;        // Read permission
+  canWrite: boolean;       // Write permission
+  canAdmin: boolean;       // Admin permission
+  expiresAt?: number;      // Expiration timestamp (ms)
+  passwordHash?: string;   // Password hash if protected
+  createdAt: number;       // Creation timestamp
+  accessCount: number;     // Number of times accessed
+  lastAccessedAt?: number; // Last access timestamp
+  isActive: boolean;       // Whether link is active
+}
+```
+
+## Examples
+
+### List Your Links
+
+```typescript
+// List all shareable links you've created
+const links = await walbucket.listShareableLinks();
+
+links.forEach(link => {
+  console.log(`Token: ${link.shareToken}`);
+  console.log(`Asset: ${link.assetId}`);
+  console.log(`Active: ${link.isActive}`);
+  console.log(`Accessed: ${link.accessCount} times`);
+});
+```
+
+### List Links for Specific User
+
+```typescript
+// List links for another address
+const userLinks = await walbucket.listShareableLinks('0x123...');
+console.log(`User has ${userLinks.length} shareable links`);
+```
+
+### Filter Active Links
+
+```typescript
+const allLinks = await walbucket.listShareableLinks();
+const activeLinks = allLinks.filter(link => link.isActive);
+
+console.log(`${activeLinks.length} active links`);
+```
+
+### Find Links for Specific Asset
+
+```typescript
+async function getAssetLinks(assetId: string) {
+  const allLinks = await walbucket.listShareableLinks();
+  return allLinks.filter(link => link.assetId === assetId);
+}
+
+// Usage
+const links = await getAssetLinks(myAssetId);
+console.log(`Asset has ${links.length} shareable links`);
+```
+
+### Group by Asset
+
+```typescript
+async function getLinksByAsset() {
+  const links = await walbucket.listShareableLinks();
+  
+  const grouped = links.reduce((acc, link) => {
+    if (!acc[link.assetId]) {
+      acc[link.assetId] = [];
+    }
+    acc[link.assetId].push(link);
+    return acc;
+  }, {} as Record<string, typeof links>);
+  
+  return grouped;
+}
+
+// Usage
+const byAsset = await getLinksByAsset();
+Object.entries(byAsset).forEach(([assetId, links]) => {
+  const active = links.filter(l => l.isActive).length;
+  console.log(`Asset ${assetId}: ${active}/${links.length} active links`);
+});
+```
+
+### Find Most Accessed Links
+
+```typescript
+async function getMostAccessedLinks(limit: number = 10) {
+  const links = await walbucket.listShareableLinks();
+  
+  return links
+    .filter(link => link.isActive)
+    .sort((a, b) => b.accessCount - a.accessCount)
+    .slice(0, limit);
+}
+
+// Usage
+const topLinks = await getMostAccessedLinks(5);
+topLinks.forEach((link, i) => {
+  console.log(`${i + 1}. Token: ${link.shareToken}, Accessed: ${link.accessCount} times`);
+});
+```
+
+### Find Expiring Links
+
+```typescript
+async function getExpiringLinks(hours: number = 24) {
+  const links = await walbucket.listShareableLinks();
+  const threshold = Date.now() + (hours * 60 * 60 * 1000);
+  
+  return links.filter(link => 
+    link.isActive &&
+    link.expiresAt &&
+    link.expiresAt < threshold &&
+    link.expiresAt > Date.now()
+  );
+}
+
+// Usage
+const expiring = await getExpiringLinks(24);
+console.log(`${expiring.length} links expiring in next 24 hours`);
+```
+
+### Link Management Dashboard
+
+```typescript
+async function getLinkStats() {
+  const links = await walbucket.listShareableLinks();
+  
+  const stats = {
+    total: links.length,
+    active: links.filter(l => l.isActive).length,
+    expired: links.filter(l => l.expiresAt && l.expiresAt < Date.now()).length,
+    protected: links.filter(l => l.passwordHash).length,
+    totalAccesses: links.reduce((sum, l) => sum + l.accessCount, 0)
+  };
+  
+  return stats;
+}
+
+// Usage
+const stats = await getLinkStats();
+console.log(`Total: ${stats.total}, Active: ${stats.active}`);
+console.log(`Total Accesses: ${stats.totalAccesses}`);
+```
+
+### Display Link Table
+
+```typescript
+async function renderLinkTable(assetId?: string) {
+  const allLinks = await walbucket.listShareableLinks();
+  const links = assetId 
+    ? allLinks.filter(l => l.assetId === assetId)
+    : allLinks;
+  
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Token</th>
+          <th>Asset</th>
+          <th>Status</th>
+          <th>Permissions</th>
+          <th>Accessed</th>
+          <th>Expires</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {links.map(link => (
+          <tr key={link.id}>
+            <td><code>{link.shareToken}</code></td>
+            <td>{link.assetId.slice(0, 8)}...</td>
+            <td>{link.isActive ? '✅ Active' : '❌ Inactive'}</td>
+            <td>
+              {link.canRead && 'R'}
+              {link.canWrite && 'W'}
+              {link.canAdmin && 'A'}
+            </td>
+            <td>{link.accessCount}</td>
+            <td>
+              {link.expiresAt 
+                ? new Date(link.expiresAt).toLocaleDateString()
+                : 'Never'}
+            </td>
+            <td>
+              {link.isActive && (
+                <button onClick={() => deactivate(link.id)}>
+                  Deactivate
+                </button>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+```
+
+### Search by Token
+
+```typescript
+async function findLinkByToken(shareToken: string) {
+  const links = await walbucket.listShareableLinks();
+  return links.find(link => link.shareToken === shareToken);
+}
+
+// Usage
+const link = await findLinkByToken('abc-123-xyz');
+if (link) {
+  console.log(`Found link for asset: ${link.assetId}`);
+  console.log(`Active: ${link.isActive}`);
+}
+```
+
+## Error Handling
+
+```typescript
+try {
+  const links = await walbucket.listShareableLinks(ownerAddress);
+  console.log(`Found ${links.length} shareable links`);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid owner address');
+  } else if (error instanceof BlockchainError) {
+    console.error('Failed to query links:', error.message);
+  }
+}
+```
+
+## Notes
+
+- Returns all shareable links created by the specified owner
+- Includes both active and inactive links
+- Filter by `isActive` to see only active links
+- Links are returned in no specific order
+- Use `getShareableLink()` for details on a specific link
+
+## Performance Tips
+
+1. **Cache Results**: Cache the list and refresh when needed
+2. **Filter Client-Side**: Apply filters on cached data
+3. **Lazy Loading**: Load links only when viewing link management
+4. **Incremental Updates**: Track link creation/deactivation to update cache
+
+## Related
+
+- [Create Shareable Link](/docs/api/create-shareable-link) - Create public links
+- [Deactivate Shareable Link](/docs/api/deactivate-shareable-link) - Disable links
+- [Track Link Access](/docs/api/track-link-access) - Monitor link usage
+- [Get Shareable Link](/docs/api/get-shareable-link) - Get single link details

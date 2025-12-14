@@ -1,0 +1,272 @@
+# List Access Grants
+
+Query all access grants created by or for a specific address. View who has access to your assets and what permissions they have.
+
+## Method Signature
+
+```typescript
+listAccessGrants(owner?: string): Promise<AccessGrant[]>
+```
+
+## Parameters
+
+### `owner` (optional)
+
+The address to query grants for. If not provided, uses the current user's address.
+
+- Type: `string`
+- Format: Sui address (0x...)
+- Default: Current user's address (from wallet or sponsor)
+
+## Returns
+
+`Promise<AccessGrant[]>` - Array of access grant objects
+
+### AccessGrant Object
+
+```typescript
+interface AccessGrant {
+  id: string;              // Grant ID
+  assetId: string;         // Asset ID
+  owner: string;           // Grant creator address
+  grantedTo: string;       // Recipient address
+  canRead: boolean;        // Read permission
+  canWrite: boolean;       // Write permission
+  canAdmin: boolean;       // Admin permission
+  expiresAt?: number;      // Expiration timestamp (ms)
+  passwordHash?: string;   // Password hash if protected
+  createdAt: number;       // Creation timestamp
+  isActive: boolean;       // Whether grant is active
+}
+```
+
+## Examples
+
+### List Your Grants
+
+```typescript
+// List all grants you've created
+const grants = await walbucket.listAccessGrants();
+
+grants.forEach(grant => {
+  console.log(`Asset: ${grant.assetId}`);
+  console.log(`Shared with: ${grant.grantedTo}`);
+  console.log(`Permissions: Read=${grant.canRead}, Write=${grant.canWrite}, Admin=${grant.canAdmin}`);
+});
+```
+
+### List Grants for Specific User
+
+```typescript
+// List grants for another address
+const userGrants = await walbucket.listAccessGrants('0x123...');
+console.log(`User has ${userGrants.length} access grants`);
+```
+
+### Filter Active Grants
+
+```typescript
+const allGrants = await walbucket.listAccessGrants();
+const activeGrants = allGrants.filter(grant => grant.isActive);
+
+console.log(`${activeGrants.length} active grants`);
+```
+
+### Find Grants for Specific Asset
+
+```typescript
+async function getAssetGrants(assetId: string) {
+  const allGrants = await walbucket.listAccessGrants();
+  return allGrants.filter(grant => grant.assetId === assetId);
+}
+
+// Usage
+const grants = await getAssetGrants(myAssetId);
+console.log(`Asset shared with ${grants.length} users`);
+```
+
+### Group by Asset
+
+```typescript
+async function getGrantsByAsset() {
+  const grants = await walbucket.listAccessGrants();
+  
+  const grouped = grants.reduce((acc, grant) => {
+    if (!acc[grant.assetId]) {
+      acc[grant.assetId] = [];
+    }
+    acc[grant.assetId].push(grant);
+    return acc;
+  }, {} as Record<string, typeof grants>);
+  
+  return grouped;
+}
+
+// Usage
+const byAsset = await getGrantsByAsset();
+Object.entries(byAsset).forEach(([assetId, grants]) => {
+  console.log(`Asset ${assetId}: ${grants.length} grants`);
+});
+```
+
+### Check User Access
+
+```typescript
+async function checkUserHasAccess(
+  assetId: string,
+  userAddress: string
+): Promise<boolean> {
+  const grants = await walbucket.listAccessGrants();
+  
+  return grants.some(grant => 
+    grant.assetId === assetId && 
+    grant.grantedTo === userAddress &&
+    grant.isActive
+  );
+}
+
+// Usage
+const hasAccess = await checkUserHasAccess(assetId, '0x123...');
+if (hasAccess) {
+  console.log('User has access');
+}
+```
+
+### Display Access Management UI
+
+```typescript
+async function renderAccessManagement(assetId: string) {
+  const grants = await walbucket.listAccessGrants();
+  const assetGrants = grants.filter(g => 
+    g.assetId === assetId && g.isActive
+  );
+  
+  return (
+    <div>
+      <h3>Shared With ({assetGrants.length})</h3>
+      {assetGrants.map(grant => (
+        <div key={grant.id} className="access-grant-item">
+          <div>
+            <strong>{grant.grantedTo}</strong>
+            <div>
+              Permissions: 
+              {grant.canRead && ' Read'}
+              {grant.canWrite && ' Write'}
+              {grant.canAdmin && ' Admin'}
+            </div>
+            {grant.expiresAt && (
+              <div>
+                Expires: {new Date(grant.expiresAt).toLocaleString()}
+              </div>
+            )}
+            <div>
+              Created: {new Date(grant.createdAt).toLocaleString()}
+            </div>
+          </div>
+          <button onClick={() => handleRevoke(grant.id)}>
+            Revoke
+          </button>
+        </div>
+      ))}
+      {assetGrants.length === 0 && (
+        <p>Not shared with anyone yet</p>
+      )}
+    </div>
+  );
+}
+```
+
+### Find Grants by Permission
+
+```typescript
+async function findGrantsByPermission(permission: 'read' | 'write' | 'admin') {
+  const grants = await walbucket.listAccessGrants();
+  
+  return grants.filter(grant => {
+    switch (permission) {
+      case 'read': return grant.canRead;
+      case 'write': return grant.canWrite;
+      case 'admin': return grant.canAdmin;
+    }
+  });
+}
+
+// Usage
+const adminGrants = await findGrantsByPermission('admin');
+console.log(`${adminGrants.length} grants with admin permission`);
+```
+
+### Check Expiring Soon
+
+```typescript
+async function getExpiringSoon(hours: number = 24) {
+  const grants = await walbucket.listAccessGrants();
+  const threshold = Date.now() + (hours * 60 * 60 * 1000);
+  
+  return grants.filter(grant => 
+    grant.isActive &&
+    grant.expiresAt &&
+    grant.expiresAt < threshold &&
+    grant.expiresAt > Date.now()
+  );
+}
+
+// Usage
+const expiring = await getExpiringSoon(24);
+console.log(`${expiring.length} grants expiring in next 24 hours`);
+```
+
+## Error Handling
+
+```typescript
+try {
+  const grants = await walbucket.listAccessGrants(ownerAddress);
+  console.log(`Found ${grants.length} grants`);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid owner address');
+  } else if (error instanceof BlockchainError) {
+    console.error('Failed to query grants:', error.message);
+  }
+}
+```
+
+## Notes
+
+- Returns all grants created by the specified owner
+- Includes both active and inactive grants
+- Filter by `isActive` to see only active grants
+- Grants are returned in no specific order
+- Use pagination for large numbers of grants (query in batches)
+
+## Performance Tips
+
+1. **Cache Results**: Cache the list and refresh periodically
+2. **Filter Client-Side**: Filter and search on the client for better UX
+3. **Lazy Loading**: Load grants only when needed
+4. **Pagination**: For large datasets, implement pagination
+
+```typescript
+// Example with caching
+let grantsCache: AccessGrant[] | null = null;
+let cacheTime = 0;
+const CACHE_TTL = 60000; // 1 minute
+
+async function getCachedGrants(): Promise<AccessGrant[]> {
+  const now = Date.now();
+  
+  if (!grantsCache || now - cacheTime > CACHE_TTL) {
+    grantsCache = await walbucket.listAccessGrants();
+    cacheTime = now;
+  }
+  
+  return grantsCache;
+}
+```
+
+## Related
+
+- [Share Asset](/docs/api/share-asset) - Create access grants
+- [Revoke Share](/docs/api/revoke-share) - Revoke grants
+- [List Shareable Links](/docs/api/list-shareable-links) - View public links
+- [Get Access Grant](/docs/api/get-access-grant) - Get single grant details

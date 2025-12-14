@@ -1,0 +1,298 @@
+# Deactivate Shareable Link
+
+Deactivate a shareable link, preventing further access via that link. The link will no longer work and cannot be reactivated.
+
+## Method Signature
+
+```typescript
+deactivateShareableLink(linkId: string): Promise<void>
+```
+
+## Parameters
+
+### `linkId` (required)
+
+The ID of the ShareableLink to deactivate.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+- Obtained from `listShareableLinks()` or when creating the link
+
+## Returns
+
+`Promise<void>` - Resolves when link is deactivated
+
+## Examples
+
+### Basic Deactivation
+
+```typescript
+// Deactivate a shareable link
+await walbucket.deactivateShareableLink(linkId);
+console.log('Link deactivated successfully');
+```
+
+### Deactivate with Confirmation
+
+```typescript
+async function deactivateLinkWithConfirmation(
+  linkId: string,
+  shareToken: string
+) {
+  if (confirm(`Deactivate link with token "${shareToken}"?`)) {
+    try {
+      await walbucket.deactivateShareableLink(linkId);
+      alert('Link deactivated successfully');
+    } catch (error) {
+      alert(`Failed to deactivate: ${error.message}`);
+    }
+  }
+}
+```
+
+### Deactivate All Links for an Asset
+
+```typescript
+async function deactivateAllLinks(assetId: string) {
+  // Get all links for the asset
+  const allLinks = await walbucket.listShareableLinks();
+  const assetLinks = allLinks.filter(link => 
+    link.assetId === assetId && link.isActive
+  );
+  
+  if (assetLinks.length === 0) {
+    console.log('No active links to deactivate');
+    return;
+  }
+  
+  // Deactivate each link
+  for (const link of assetLinks) {
+    await walbucket.deactivateShareableLink(link.id);
+    console.log(`Deactivated link: ${link.shareToken}`);
+  }
+  
+  console.log(`Deactivated ${assetLinks.length} links`);
+}
+```
+
+### Deactivate Expired Links
+
+```typescript
+async function cleanupExpiredLinks() {
+  const links = await walbucket.listShareableLinks();
+  const now = Date.now();
+  
+  for (const link of links) {
+    if (link.isActive && link.expiresAt && link.expiresAt < now) {
+      await walbucket.deactivateShareableLink(link.id);
+      console.log(`Cleaned up expired link: ${link.shareToken}`);
+    }
+  }
+}
+```
+
+### Deactivate by Token
+
+```typescript
+async function deactivateByToken(shareToken: string) {
+  const links = await walbucket.listShareableLinks();
+  
+  const link = links.find(l => l.shareToken === shareToken);
+  
+  if (!link) {
+    throw new Error('Link not found');
+  }
+  
+  if (!link.isActive) {
+    console.log('Link already deactivated');
+    return;
+  }
+  
+  await walbucket.deactivateShareableLink(link.id);
+  console.log(`Deactivated link with token: ${shareToken}`);
+}
+```
+
+### Batch Deactivation
+
+```typescript
+async function batchDeactivateLinks(linkIds: string[]) {
+  const results = [];
+  
+  for (const linkId of linkIds) {
+    try {
+      await walbucket.deactivateShareableLink(linkId);
+      results.push({ linkId, status: 'success' });
+    } catch (error) {
+      results.push({ 
+        linkId, 
+        status: 'failed', 
+        error: error.message 
+      });
+    }
+  }
+  
+  return results;
+}
+```
+
+### Link Management UI
+
+```typescript
+async function renderLinkManagement(assetId: string) {
+  const links = await walbucket.listShareableLinks();
+  const assetLinks = links.filter(l => l.assetId === assetId);
+  
+  return (
+    <div>
+      <h3>Shareable Links</h3>
+      {assetLinks.map(link => (
+        <div key={link.id}>
+          <code>{link.shareToken}</code>
+          <span>
+            Status: {link.isActive ? 'Active' : 'Inactive'}
+          </span>
+          {link.expiresAt && (
+            <span>
+              Expires: {new Date(link.expiresAt).toLocaleString()}
+            </span>
+          )}
+          <span>
+            Accessed: {link.accessCount} times
+          </span>
+          {link.isActive && (
+            <button onClick={() => handleDeactivate(link.id)}>
+              Deactivate
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+async function handleDeactivate(linkId: string) {
+  await walbucket.deactivateShareableLink(linkId);
+  // Refresh UI
+}
+```
+
+## What Happens When You Deactivate
+
+1. **Link Disabled**: The link is marked as inactive on blockchain
+2. **Access Blocked**: No one can access via this link anymore
+3. **Immediate Effect**: Takes effect instantly
+4. **Permanent**: Cannot be reactivated (must create new link if needed)
+5. **Token Preserved**: The shareToken remains in blockchain but is inactive
+6. **Stats Preserved**: Access count and stats are retained
+
+## Error Handling
+
+```typescript
+try {
+  await walbucket.deactivateShareableLink(linkId);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid link ID');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('E_NOT_OWNER')) {
+      console.error('You do not own this link');
+    } else if (error.message.includes('not found')) {
+      console.error('Link not found');
+    } else if (error.message.includes('E_ALREADY_DEACTIVATED')) {
+      console.error('Link is already deactivated');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Only link creator (asset owner) can deactivate
+- Deactivation is immediate and permanent
+- Does not delete the link object (remains queryable but inactive)
+- Gas fees apply based on `gasStrategy`
+- Cannot reactivate (must create new link)
+- Use `listShareableLinks()` to view all links
+
+## Use Cases
+
+### Security Response
+
+```typescript
+// Immediately block all public access
+async function lockdownPublicAccess(assetId: string) {
+  const links = await walbucket.listShareableLinks();
+  const activeLinks = links.filter(l => 
+    l.assetId === assetId && l.isActive
+  );
+  
+  for (const link of activeLinks) {
+    await walbucket.deactivateShareableLink(link.id);
+  }
+  
+  console.log(`Locked down: Deactivated ${activeLinks.length} links`);
+}
+```
+
+### Rotate Links
+
+```typescript
+// Deactivate old link and create new one
+async function rotateShareLink(
+  oldLinkId: string,
+  assetId: string
+) {
+  // Deactivate old link
+  await walbucket.deactivateShareableLink(oldLinkId);
+  
+  // Create new link
+  const newToken = crypto.randomUUID();
+  await walbucket.createShareableLink(assetId, {
+    shareToken: newToken,
+    canRead: true,
+    expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000)
+  });
+  
+  return newToken;
+}
+```
+
+### Usage Limit Enforcement
+
+```typescript
+// Deactivate link after certain number of accesses
+async function enforceAccessLimit(linkId: string, maxAccess: number) {
+  const link = await walbucket.getShareableLink(linkId);
+  
+  if (link.accessCount >= maxAccess) {
+    await walbucket.deactivateShareableLink(linkId);
+    console.log(`Link deactivated after ${maxAccess} accesses`);
+  }
+}
+```
+
+## Best Practices
+
+1. **Immediate Response**: Deactivate links immediately on security incidents
+2. **Regular Cleanup**: Periodically deactivate expired links
+3. **User Notification**: Inform users when links are deactivated
+4. **Audit Trail**: Log deactivations for security audits
+5. **Link Rotation**: Rotate sensitive links periodically
+
+## Difference from Revoke Share
+
+| Feature | revokeShare() | deactivateShareableLink() |
+|---------|---------------|---------------------------|
+| Target | AccessGrant (specific user) | ShareableLink (public link) |
+| Scope | One specific user | Anyone with the link |
+| Use Case | Private sharing | Public link sharing |
+
+## Related
+
+- [Create Shareable Link](/docs/api/create-shareable-link) - Create public links
+- [Revoke Share](/docs/api/revoke-share) - Revoke user-specific grants
+- [List Shareable Links](/docs/api/list-shareable-links) - View all links
+- [Track Link Access](/docs/api/track-link-access) - Monitor link usage

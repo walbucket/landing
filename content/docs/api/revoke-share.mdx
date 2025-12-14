@@ -1,23 +1,22 @@
-````plaintext
 # Revoke Share
 
-Revoke a previously granted share by deleting the encryption policy. The recipient will lose access to the asset.
+Revoke a previously granted access grant. The recipient will immediately lose access to the asset.
 
 ## Method Signature
 
 ```typescript
-revokeShare(policyId: string): Promise<void>
+revokeShare(grantId: string): Promise<void>
 ```
 
 ## Parameters
 
-### `policyId` (required)
+### `grantId` (required)
 
-The ID of the encryption policy to revoke.
+The ID of the AccessGrant to revoke.
 
 - Type: `string`
 - Format: Sui object ID (0x...)
-- Obtained from `shareAsset()` or asset metadata
+- Obtained from `listAccessGrants()` or when creating the share
 
 ## Returns
 
@@ -28,17 +27,21 @@ The ID of the encryption policy to revoke.
 ### Basic Revoke
 
 ```typescript
-await walbucket.revokeShare(policyId);
-console.log('Share revoked successfully');
+// Revoke an access grant
+await walbucket.revokeShare(grantId);
+console.log('Access revoked successfully');
 ```
 
 ### Revoke with Confirmation
 
 ```typescript
-async function revokeWithConfirmation(policyId: string, recipientAddress: string) {
+async function revokeWithConfirmation(
+  grantId: string,
+  recipientAddress: string
+) {
   if (confirm(`Revoke access for ${recipientAddress}?`)) {
     try {
-      await walbucket.revokeShare(policyId);
+      await walbucket.revokeShare(grantId);
       alert('Access revoked successfully');
     } catch (error) {
       alert(`Failed to revoke: ${error.message}`);
@@ -47,29 +50,51 @@ async function revokeWithConfirmation(policyId: string, recipientAddress: string
 }
 ```
 
-### Revoke All Shares
+### Revoke All Grants for an Asset
 
 ```typescript
-async function revokeAllShares(assetId: string) {
-  const asset = await walbucket.getAsset(assetId);
-
-  if (!asset.policyId) {
-    console.log('No shares to revoke');
+async function revokeAllAccess(assetId: string) {
+  // Get all grants for the asset
+  const allGrants = await walbucket.listAccessGrants();
+  const assetGrants = allGrants.filter(grant => 
+    grant.assetId === assetId
+  );
+  
+  if (assetGrants.length === 0) {
+    console.log('No grants to revoke');
     return;
   }
+  
+  // Revoke each grant
+  for (const grant of assetGrants) {
+    await walbucket.revokeShare(grant.id);
+    console.log(`Revoked grant: ${grant.id}`);
+  }
+  
+  console.log(`Revoked ${assetGrants.length} grants`);
+}
+```
 
-  // In practice, you'd need to track all policy IDs
-  // This is simplified for demonstration
-  const policyIds = await getAssetPolicyIds(assetId);
+### Revoke Specific User Access
 
-  for (const policyId of policyIds) {
-    await walbucket.revokeShare(policyId);
-    console.log(`Revoked policy: ${policyId}`);
+```typescript
+async function revokeUserAccess(assetId: string, userAddress: string) {
+  const grants = await walbucket.listAccessGrants();
+  
+  const userGrant = grants.find(grant => 
+    grant.assetId === assetId && grant.grantedTo === userAddress
+  );
+  
+  if (userGrant) {
+    await walbucket.revokeShare(userGrant.id);
+    console.log(`Revoked access for ${userAddress}`);
+  } else {
+    console.log('No grant found for this user');
   }
 }
 ```
 
-### Time-Limited Share
+### Time-Limited Auto-Revoke
 
 ```typescript
 async function shareTemporarily(
@@ -78,73 +103,118 @@ async function shareTemporarily(
   durationMs: number
 ) {
   // Create share
-  const policyId = await walbucket.shareAsset(assetId, recipient);
-  console.log('Access granted');
-
+  await walbucket.shareAsset(assetId, recipient, {
+    canRead: true
+  });
+  
+  // Get the grant ID (you need to track this or query)
+  const grants = await walbucket.listAccessGrants();
+  const grant = grants.find(g => 
+    g.assetId === assetId && g.grantedTo === recipient
+  );
+  
+  if (!grant) {
+    throw new Error('Grant not found');
+  }
+  
+  console.log('Access granted temporarily');
+  
   // Auto-revoke after duration
   setTimeout(async () => {
-    await walbucket.revokeShare(policyId);
+    await walbucket.revokeShare(grant.id);
     console.log('Access revoked automatically');
   }, durationMs);
-
-  return policyId;
+  
+  return grant.id;
 }
 
 // Usage: 24-hour access
 await shareTemporarily(assetId, recipientAddress, 24 * 60 * 60 * 1000);
 ```
 
-### Revoke UI
+### Batch Revoke
+
+```typescript
+async function batchRevokeGrants(grantIds: string[]) {
+  const results = [];
+  
+  for (const grantId of grantIds) {
+    try {
+      await walbucket.revokeShare(grantId);
+      results.push({ grantId, status: 'success' });
+    } catch (error) {
+      results.push({ 
+        grantId, 
+        status: 'failed', 
+        error: error.message 
+      });
+    }
+  }
+  
+  return results;
+}
+```
+
+### Revoke UI Component
 
 ```typescript
 async function renderShareManagement(assetId: string) {
-  const asset = await walbucket.getAsset(assetId);
-  const shares = await getAssetShares(assetId); // Custom function
-
-  const container = document.createElement('div');
-
-  shares.forEach(share => {
-    const item = document.createElement('div');
-    item.innerHTML = `
-      <span>${share.recipient}</span>
-      <button onclick="handleRevoke('${share.policyId}')">
-        Revoke Access
-      </button>
-    `;
-    container.appendChild(item);
-  });
-
-  return container;
+  const grants = await walbucket.listAccessGrants();
+  const assetGrants = grants.filter(g => g.assetId === assetId);
+  
+  return (
+    <div>
+      <h3>Active Shares</h3>
+      {assetGrants.map(grant => (
+        <div key={grant.id}>
+          <span>{grant.grantedTo}</span>
+          <span>
+            Permissions: 
+            {grant.canRead && ' Read'}
+            {grant.canWrite && ' Write'}
+            {grant.canAdmin && ' Admin'}
+          </span>
+          {grant.expiresAt && (
+            <span>Expires: {new Date(grant.expiresAt).toLocaleString()}</span>
+          )}
+          <button onClick={() => handleRevoke(grant.id)}>
+            Revoke
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-async function handleRevoke(policyId: string) {
-  await walbucket.revokeShare(policyId);
+async function handleRevoke(grantId: string) {
+  await walbucket.revokeShare(grantId);
   // Refresh UI
-  await renderShareManagement(assetId);
 }
 ```
 
 ## What Happens When You Revoke
 
-1. **Policy Deleted**: The encryption policy is removed from blockchain
-2. **Access Removed**: Recipient can no longer decrypt the asset
+1. **Grant Deleted**: The access grant is removed from blockchain
+2. **Access Removed**: Recipient immediately loses all permissions
 3. **Immediate Effect**: Takes effect instantly
-4. **Permanent**: Cannot be undone (must reshare if needed)
+4. **Permanent**: Cannot be undone (must create new share if needed)
 5. **Owner Unaffected**: Owner retains full access
 
 ## Error Handling
 
 ```typescript
 try {
-  await walbucket.revokeShare(policyId);
+  await walbucket.revokeShare(grantId);
 } catch (error) {
   if (error instanceof ValidationError) {
-    console.error('Invalid policy ID');
+    console.error('Invalid grant ID');
   } else if (error instanceof BlockchainError) {
     if (error.message.includes('E_NOT_OWNER')) {
-      console.error('You do not own this policy');
+      console.error('You do not own this grant');
     } else if (error.message.includes('not found')) {
-      console.error('Policy not found (may already be revoked)');
+      console.error('Grant not found (may already be revoked)');
+    } else if (error.message.includes('E_ASSET_DELETED')) {
+      console.error('Asset has been deleted');
     } else {
       console.error('Blockchain error:', error.message);
     }
@@ -154,85 +224,77 @@ try {
 
 ## Notes
 
-- Only policy creator (asset owner) can revoke
+- Only grant creator (asset owner) can revoke
 - Revocation is immediate and permanent
-- Cannot revoke shareable links (use expiration instead)
-- Gas fees apply based on `gasStrategy`
-- Recipient loses access instantly
-- Multiple policies can exist (revoke individually)
 - Does not delete the asset itself
+- Gas fees apply based on `gasStrategy`
+- Multiple grants can exist (revoke individually)
+- Use `listAccessGrants()` to view all active grants
 
 ## Use Cases
-
-### Access Management
-
-```typescript
-// Revoke when access is no longer needed
-await walbucket.revokeShare(policyId);
-```
 
 ### Security Response
 
 ```typescript
-// Revoke all access in security incident
-async function emergencyRevoke(assetId: string) {
-  const policies = await getAssetPolicies(assetId);
-
-  for (const policyId of policies) {
-    await walbucket.revokeShare(policyId);
+// Immediately revoke all access in case of security incident
+async function emergencyLockdown(assetId: string) {
+  const grants = await walbucket.listAccessGrants();
+  const assetGrants = grants.filter(g => g.assetId === assetId);
+  
+  for (const grant of assetGrants) {
+    await walbucket.revokeShare(grant.id);
   }
-
-  console.log('All access revoked');
+  
+  console.log(`Emergency: Revoked ${assetGrants.length} grants`);
 }
 ```
 
 ### Team Member Removal
 
 ```typescript
-// Revoke access when team member leaves
-async function revokeUserAccess(userAddress: string) {
-  const sharedAssets = await getUserSharedAssets(userAddress);
-
-  for (const asset of sharedAssets) {
-    const policy = await getPolicyForUser(asset.assetId, userAddress);
-    await walbucket.revokeShare(policy.id);
+// Revoke all access when team member leaves
+async function removeTeamMember(memberAddress: string) {
+  const grants = await walbucket.listAccessGrants();
+  const memberGrants = grants.filter(g => g.grantedTo === memberAddress);
+  
+  for (const grant of memberGrants) {
+    await walbucket.revokeShare(grant.id);
   }
+  
+  console.log(`Removed access for ${memberAddress}`);
 }
 ```
 
-### Conditional Access
+### Conditional Revocation
 
 ```typescript
-// Revoke based on conditions
-async function checkAndRevoke(policyId: string) {
-  const policy = await getPolicy(policyId);
-
-  // Custom business logic
-  if (policy.createdAt < Date.now() - 30 * 24 * 60 * 60 * 1000) {
-    await walbucket.revokeShare(policyId);
-    console.log('Revoked expired 30-day share');
+// Revoke expired grants (if not using blockchain expiration)
+async function cleanupExpiredGrants() {
+  const grants = await walbucket.listAccessGrants();
+  const now = Date.now();
+  
+  for (const grant of grants) {
+    // Custom expiration logic
+    const created = new Date(grant.createdAt).getTime();
+    if (created + (30 * 24 * 60 * 60 * 1000) < now) {
+      await walbucket.revokeShare(grant.id);
+      console.log(`Cleaned up expired grant: ${grant.id}`);
+    }
   }
 }
 ```
 
 ## Best Practices
 
-1. **Track Policy IDs**: Store policy IDs when creating shares
-2. **Audit Trail**: Log revocations for compliance
-3. **User Notification**: Notify users when access is revoked
-4. **Confirmation**: Require confirmation for revocation
-5. **Time Limits**: Use automatic revocation for temporary access
-
-## Limitations
-
-- Cannot revoke shareable links (they're public)
-- Cannot partially revoke (all or nothing per policy)
-- Requires policy ID (must track when sharing)
+1. **Track Grant IDs**: Store grant IDs when creating shares for easy revocation
+2. **Audit Trail**: Log all revocations for compliance and security audit
+3. **User Notification**: Notify users when their access is revoked
+4. **Confirmation**: Require user confirmation before revoking
+5. **Batch Operations**: Handle multiple revocations efficiently
 
 ## Related
 
-- [Share Asset](/docs/api/share-asset) - Create encrypted shares
-- [Create Shareable Link](/docs/api/create-shareable-link) - Public links
-- [Get Asset](/docs/api/get-asset) - View asset and policy info
-
-````
+- [Share Asset](/docs/api/share-asset) - Create access grants
+- [List Access Grants](/docs/api/list-access-grants) - View all grants
+- [Deactivate Shareable Link](/docs/api/deactivate-shareable-link) - Disable public links
+- [Create Shareable Link](/docs/api/create-shareable-link) - Create public links

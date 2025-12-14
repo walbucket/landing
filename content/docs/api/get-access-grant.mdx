@@ -1,0 +1,272 @@
+# Get Access Grant
+
+Retrieve detailed information about a specific access grant, including permissions, expiration, and metadata.
+
+## Method Signature
+
+```typescript
+getAccessGrant(grantId: string): Promise<AccessGrant>
+```
+
+## Parameters
+
+### `grantId` (required)
+
+The ID of the AccessGrant to retrieve.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+## Returns
+
+`Promise<AccessGrant>` - The access grant object
+
+### AccessGrant Object
+
+```typescript
+interface AccessGrant {
+  id: string;              // Grant ID
+  assetId: string;         // Asset ID
+  owner: string;           // Grant creator address
+  grantedTo: string;       // Recipient address
+  canRead: boolean;        // Read permission
+  canWrite: boolean;       // Write permission
+  canAdmin: boolean;       // Admin permission
+  expiresAt?: number;      // Expiration timestamp (ms)
+  passwordHash?: string;   // Password hash if protected
+  createdAt: number;       // Creation timestamp
+  isActive: boolean;       // Whether grant is active
+}
+```
+
+## Examples
+
+### Get Grant Details
+
+```typescript
+const grant = await walbucket.getAccessGrant(grantId);
+
+console.log('Grant Details:');
+console.log(`Asset: ${grant.assetId}`);
+console.log(`Granted To: ${grant.grantedTo}`);
+console.log(`Permissions: R:${grant.canRead} W:${grant.canWrite} A:${grant.canAdmin}`);
+console.log(`Active: ${grant.isActive}`);
+```
+
+### Check Grant Permissions
+
+```typescript
+async function checkGrantPermissions(grantId: string) {
+  const grant = await walbucket.getAccessGrant(grantId);
+  
+  return {
+    canRead: grant.canRead,
+    canWrite: grant.canWrite,
+    canAdmin: grant.canAdmin,
+    hasExpired: grant.expiresAt ? grant.expiresAt < Date.now() : false
+  };
+}
+```
+
+### Display Grant Info
+
+```typescript
+async function renderGrantInfo(grantId: string) {
+  const grant = await walbucket.getAccessGrant(grantId);
+  
+  return (
+    <div className="grant-details">
+      <h3>Access Grant Details</h3>
+      
+      <div>
+        <strong>Recipient:</strong> {grant.grantedTo}
+      </div>
+      
+      <div>
+        <strong>Permissions:</strong>
+        <ul>
+          {grant.canRead && <li>✅ Read</li>}
+          {grant.canWrite && <li>✅ Write</li>}
+          {grant.canAdmin && <li>✅ Admin</li>}
+        </ul>
+      </div>
+      
+      <div>
+        <strong>Status:</strong> {grant.isActive ? 'Active' : 'Revoked'}
+      </div>
+      
+      {grant.expiresAt && (
+        <div>
+          <strong>Expires:</strong> {new Date(grant.expiresAt).toLocaleString()}
+        </div>
+      )}
+      
+      <div>
+        <strong>Created:</strong> {new Date(grant.createdAt).toLocaleString()}
+      </div>
+    </div>
+  );
+}
+```
+
+### Verify Grant Before Access
+
+```typescript
+async function verifyAndAccess(grantId: string, userAddress: string) {
+  const grant = await walbucket.getAccessGrant(grantId);
+  
+  // Verify the grant
+  if (!grant.isActive) {
+    throw new Error('Access has been revoked');
+  }
+  
+  if (grant.grantedTo !== userAddress) {
+    throw new Error('This grant is not for you');
+  }
+  
+  if (grant.expiresAt && grant.expiresAt < Date.now()) {
+    throw new Error('Access has expired');
+  }
+  
+  // Access the asset
+  if (grant.canRead) {
+    const asset = await walbucket.retrieve(grant.assetId);
+    return asset;
+  } else {
+    throw new Error('No read permission');
+  }
+}
+```
+
+### Audit Trail
+
+```typescript
+async function auditAccessGrant(grantId: string) {
+  const grant = await walbucket.getAccessGrant(grantId);
+  
+  const auditLog = {
+    grantId: grant.id,
+    assetId: grant.assetId,
+    grantedBy: grant.owner,
+    grantedTo: grant.grantedTo,
+    permissions: {
+      read: grant.canRead,
+      write: grant.canWrite,
+      admin: grant.canAdmin
+    },
+    status: grant.isActive ? 'active' : 'revoked',
+    createdAt: new Date(grant.createdAt).toISOString(),
+    expiresAt: grant.expiresAt ? new Date(grant.expiresAt).toISOString() : null,
+    hasPassword: !!grant.passwordHash
+  };
+  
+  // Log to audit system
+  await auditSystem.log('access_grant_audit', auditLog);
+  
+  return auditLog;
+}
+```
+
+## Error Handling
+
+```typescript
+try {
+  const grant = await walbucket.getAccessGrant(grantId);
+  console.log('Grant found:', grant);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid grant ID');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('not found')) {
+      console.error('Grant not found or has been deleted');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Returns full grant details including permissions
+- Grant must exist on blockchain (not deleted)
+- Works for both active and revoked grants
+- Use `isActive` field to check if grant is currently valid
+- Check `expiresAt` to determine if grant has expired
+
+## Use Cases
+
+### Permission Verification
+
+```typescript
+// Verify user has required permission
+async function hasPermission(
+  grantId: string,
+  permission: 'read' | 'write' | 'admin'
+): Promise<boolean> {
+  try {
+    const grant = await walbucket.getAccessGrant(grantId);
+    
+    if (!grant.isActive) return false;
+    if (grant.expiresAt && grant.expiresAt < Date.now()) return false;
+    
+    switch (permission) {
+      case 'read': return grant.canRead;
+      case 'write': return grant.canWrite;
+      case 'admin': return grant.canAdmin;
+    }
+  } catch {
+    return false;
+  }
+}
+```
+
+### Grant Status Check
+
+```typescript
+async function getGrantStatus(grantId: string) {
+  const grant = await walbucket.getAccessGrant(grantId);
+  
+  if (!grant.isActive) {
+    return 'revoked';
+  }
+  
+  if (grant.expiresAt && grant.expiresAt < Date.now()) {
+    return 'expired';
+  }
+  
+  return 'active';
+}
+```
+
+### Security Audit
+
+```typescript
+// Audit all grants for compliance
+async function auditAllGrants() {
+  const grants = await walbucket.listAccessGrants();
+  
+  for (const grant of grants) {
+    const details = await walbucket.getAccessGrant(grant.id);
+    
+    // Check for security issues
+    if (details.canAdmin && !details.expiresAt) {
+      console.warn(`Permanent admin grant found: ${grant.id}`);
+    }
+    
+    if (details.canWrite && details.expiresAt) {
+      const daysRemaining = (details.expiresAt - Date.now()) / (24 * 60 * 60 * 1000);
+      if (daysRemaining > 365) {
+        console.warn(`Long-term write access: ${grant.id}`);
+      }
+    }
+  }
+}
+```
+
+## Related
+
+- [List Access Grants](/docs/api/list-access-grants) - List all grants
+- [Share Asset](/docs/api/share-asset) - Create grants
+- [Revoke Share](/docs/api/revoke-share) - Revoke grants
+- [Get Shareable Link](/docs/api/get-shareable-link) - Get link details

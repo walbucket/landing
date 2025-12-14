@@ -33,9 +33,18 @@ Welcome to the Walbucket SDK documentation. Get started with decentralized media
 
 #### Sharing & Permissions
 
-- [Share Asset](/docs/api/share-asset) - Share with specific users
-- [Create Shareable Link](/docs/api/create-shareable-link) - Create public links
-- [Revoke Share](/docs/api/revoke-share) - Revoke access
+##### Access Grants (Private Sharing)
+- [Share Asset](/docs/api/share-asset) - Grant access to specific users
+- [Revoke Share](/docs/api/revoke-share) - Revoke user access
+- [List Access Grants](/docs/api/list-access-grants) - View all access grants
+- [Get Access Grant](/docs/api/get-access-grant) - Get grant details
+
+##### Shareable Links (Public Sharing)
+- [Create Shareable Link](/docs/api/create-shareable-link) - Create public share links
+- [Deactivate Shareable Link](/docs/api/deactivate-shareable-link) - Disable public links
+- [Track Link Access](/docs/api/track-link-access) - Monitor link usage
+- [List Shareable Links](/docs/api/list-shareable-links) - View all shareable links
+- [Get Shareable Link](/docs/api/get-shareable-link) - Get link details
 
 ### Advanced Topics
 
@@ -60,7 +69,124 @@ Walbucket SDK provides a simple, developer-friendly interface for storing and ma
 - ✅ **Cloudinary-like API** - Familiar developer experience
 - ✅ **Automatic URL Generation** - File URLs automatically generated and returned
 - ✅ **Network Auto-Detection** - Package IDs automatically selected based on network
+- ✅ **Sharing & Permissions** - Granular access control for assets
+- ✅ **Folder Organization** - Organize assets in folders
+- ✅ **Public Links** - Create shareable links with optional expiration
+
+## Latest Updates (v0.5.5)
+
+### Sharing Features
+- Enhanced sharing with granular permissions (read, write, admin)
+- Password-protected shares
+- Time-based expiration for shares and links
+- Access grant management
+- Shareable link management with access tracking
+- Deactivate shareable links
+- List and query all shares and links
+
+### Developer Features
+- Project-based API key organization
+- API key permission management
+- Rate limiting support
+- API key expiration
+- Enhanced analytics and usage tracking
 
 ## NPM Package
 
 📦 **Package**: [@walbucket/sdk](https://www.npmjs.com/package/@walbucket/sdk)
+
+**Current Version**: 0.5.5
+
+## Quick Example
+
+```typescript
+import { Walbucket } from '@walbucket/sdk';
+
+// Initialize
+const walbucket = new Walbucket({
+  apiKey: 'your-api-key',
+  network: 'testnet',
+  sponsorPrivateKey: 'your-private-key',
+});
+
+// Upload a file
+const { assetId, url } = await walbucket.upload(file, {
+  name: 'photo.jpg',
+  folder: 'gallery'
+});
+
+// Share with specific user
+await walbucket.shareAsset(assetId, recipientAddress, {
+  canRead: true,
+  expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+});
+
+// Create public link
+const shareToken = crypto.randomUUID();
+await walbucket.createShareableLink(assetId, {
+  shareToken,
+  canRead: true,
+  expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+});
+const shareUrl = `https://yourapp.com/share/${shareToken}`;
+
+// Retrieve file
+const { data, metadata } = await walbucket.retrieve(assetId);
+```
+
+## Sharing Workflows
+
+### Private Sharing (Access Grants)
+
+For sharing with specific wallet addresses:
+
+1. Create grant with `shareAsset()`
+2. Set permissions (read/write/admin)
+3. Optional: Set expiration and password
+4. Monitor with `listAccessGrants()`
+5. Revoke with `revokeShare()` when needed
+
+### Public Sharing (Shareable Links)
+
+For creating public share links:
+
+1. Generate unique token with `crypto.randomUUID()`
+2. Create link with `createShareableLink()`
+3. Share the URL containing the token
+4. Track access with `trackLinkAccess()`
+5. Monitor with `listShareableLinks()`
+6. Deactivate with `deactivateShareableLink()` when needed
+
+## Common Patterns
+
+### Full Access Management
+
+```typescript
+// 1. Upload file
+const { assetId } = await walbucket.upload(file);
+
+// 2. Share with team member
+await walbucket.shareAsset(assetId, teamMemberAddress, {
+  canRead: true,
+  canWrite: true
+});
+
+// 3. Create public link
+const token = crypto.randomUUID();
+await walbucket.createShareableLink(assetId, {
+  shareToken: token,
+  canRead: true,
+  expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000)
+});
+
+// 4. Monitor all access
+const grants = await walbucket.listAccessGrants();
+const links = await walbucket.listShareableLinks();
+
+console.log(`Shared with ${grants.length} users`);
+console.log(`${links.length} public links created`);
+```
+
+## Support
+
+For issues, questions, or contributions, visit the [GitHub repository](https://github.com/yourusername/walbucket).

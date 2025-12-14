@@ -1,0 +1,318 @@
+# Track Link Access
+
+Track when a shareable link is accessed. Updates the access count and last accessed timestamp for analytics and monitoring.
+
+## Method Signature
+
+```typescript
+trackLinkAccess(linkId: string): Promise<void>
+```
+
+## Parameters
+
+### `linkId` (required)
+
+The ID of the ShareableLink to track access for.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+## Returns
+
+`Promise<void>` - Resolves when access is tracked
+
+## Important Notes
+
+⚠️ **User-Pays Only**: This method only supports `user-pays` gas strategy because it's called when someone accesses a link (not the owner).
+
+## Examples
+
+### Basic Tracking
+
+```typescript
+// Track link access (in user-pays mode)
+await walbucket.trackLinkAccess(linkId);
+```
+
+### Track on Link Access
+
+```typescript
+// In your /share/[token] route
+async function handleShareLinkAccess(shareToken: string) {
+  try {
+    // Find the link by token
+    const links = await walbucket.listShareableLinks();
+    const link = links.find(l => l.shareToken === shareToken);
+    
+    if (!link) {
+      throw new Error('Link not found');
+    }
+    
+    if (!link.isActive) {
+      throw new Error('Link has been deactivated');
+    }
+    
+    if (link.expiresAt && link.expiresAt < Date.now()) {
+      throw new Error('Link has expired');
+    }
+    
+    // Track the access
+    await walbucket.trackLinkAccess(link.id);
+    
+    // Return the asset
+    const asset = await walbucket.retrieve(link.assetId);
+    return asset;
+  } catch (error) {
+    console.error('Access failed:', error.message);
+    throw error;
+  }
+}
+```
+
+### Track with Analytics
+
+```typescript
+async function trackAndAnalyze(linkId: string, metadata: any) {
+  try {
+    // Track on blockchain
+    await walbucket.trackLinkAccess(linkId);
+    
+    // Also track in your analytics
+    await analytics.track('link_accessed', {
+      linkId,
+      timestamp: Date.now(),
+      ...metadata
+    });
+  } catch (error) {
+    console.error('Tracking failed:', error);
+    // Continue even if tracking fails
+  }
+}
+```
+
+### Track with User Info
+
+```typescript
+async function trackAccessWithInfo(
+  linkId: string,
+  accessorInfo: {
+    ip?: string;
+    userAgent?: string;
+    referrer?: string;
+  }
+) {
+  // Track on blockchain
+  await walbucket.trackLinkAccess(linkId);
+  
+  // Store additional info in your database
+  await db.linkAccess.create({
+    linkId,
+    ...accessorInfo,
+    timestamp: new Date()
+  });
+}
+```
+
+### Conditional Tracking
+
+```typescript
+async function accessWithTracking(
+  shareToken: string,
+  shouldTrack: boolean = true
+) {
+  const link = await findLinkByToken(shareToken);
+  
+  if (!link) {
+    throw new Error('Link not found');
+  }
+  
+  // Only track if enabled and link is active
+  if (shouldTrack && link.isActive) {
+    try {
+      await walbucket.trackLinkAccess(link.id);
+    } catch (error) {
+      console.warn('Tracking failed but continuing:', error);
+    }
+  }
+  
+  return await walbucket.retrieve(link.assetId);
+}
+```
+
+### Rate Limiting
+
+```typescript
+async function accessWithRateLimit(linkId: string, maxAccessesPerHour: number) {
+  const link = await walbucket.getShareableLink(linkId);
+  
+  // Check if rate limit exceeded
+  const hourAgo = Date.now() - (60 * 60 * 1000);
+  if (
+    link.lastAccessedAt &&
+    link.lastAccessedAt > hourAgo &&
+    link.accessCount >= maxAccessesPerHour
+  ) {
+    throw new Error('Rate limit exceeded. Try again later.');
+  }
+  
+  // Track access
+  await walbucket.trackLinkAccess(linkId);
+  
+  // Return asset
+  return await walbucket.retrieve(link.assetId);
+}
+```
+
+## Access Pattern Example
+
+Complete example of implementing a share link access page:
+
+```typescript
+// pages/share/[token].tsx
+import { Walbucket } from '@walbucket/sdk';
+import { useSignAndExecuteTransaction, useCurrentAccount } from '@mysten/dapp-kit';
+
+export default function SharePage({ params }: { params: { token: string } }) {
+  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const currentAccount = useCurrentAccount();
+  
+  const [asset, setAsset] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  useEffect(() => {
+    async function loadSharedAsset() {
+      try {
+        // Initialize SDK in user-pays mode
+        const walbucket = new Walbucket({
+          apiKey: process.env.NEXT_PUBLIC_API_KEY!,
+          network: 'testnet',
+          gasStrategy: 'user-pays',
+          signAndExecuteTransaction: signAndExecute,
+          userAddress: currentAccount?.address
+        });
+        
+        // Find link by token
+        const links = await walbucket.listShareableLinks();
+        const link = links.find(l => l.shareToken === params.token);
+        
+        if (!link) {
+          throw new Error('Link not found');
+        }
+        
+        if (!link.isActive) {
+          throw new Error('This link has been deactivated');
+        }
+        
+        if (link.expiresAt && link.expiresAt < Date.now()) {
+          throw new Error('This link has expired');
+        }
+        
+        // Track access
+        await walbucket.trackLinkAccess(link.id);
+        
+        // Retrieve asset
+        const assetData = await walbucket.retrieve(link.assetId);
+        setAsset(assetData);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    if (currentAccount) {
+      loadSharedAsset();
+    }
+  }, [params.token, currentAccount]);
+  
+  // Render UI...
+}
+```
+
+## Error Handling
+
+```typescript
+try {
+  await walbucket.trackLinkAccess(linkId);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    if (error.message.includes('user-pays')) {
+      console.error('Must use user-pays gas strategy for tracking');
+    } else {
+      console.error('Invalid link ID');
+    }
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('not found')) {
+      console.error('Link not found');
+    } else if (error.message.includes('E_LINK_DEACTIVATED')) {
+      console.error('Link has been deactivated');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- **User-Pays Only**: Only works with `user-pays` gas strategy
+- Increments `accessCount` on the link
+- Updates `lastAccessedAt` timestamp
+- Gas fees paid by the accessor (user viewing the link)
+- Tracking is optional but recommended for analytics
+- Consider implementing client-side analytics as backup
+
+## Why User-Pays Only?
+
+Link access tracking requires the **accessor** (person clicking the link) to pay gas, not the link creator. This is because:
+
+1. The accessor is performing the action
+2. Prevents abuse (unlimited free access tracking)
+3. Maintains decentralization principles
+4. Creator shouldn't pay for every view
+
+## Analytics Use Cases
+
+### Monitor Popular Links
+
+```typescript
+async function getPopularLinks() {
+  const links = await walbucket.listShareableLinks();
+  const sorted = links.sort((a, b) => b.accessCount - a.accessCount);
+  
+  console.log('Top 10 Most Accessed Links:');
+  sorted.slice(0, 10).forEach((link, i) => {
+    console.log(`${i + 1}. ${link.shareToken}: ${link.accessCount} accesses`);
+  });
+}
+```
+
+### Track Access Patterns
+
+```typescript
+async function analyzeAccessPatterns() {
+  const links = await walbucket.listShareableLinks();
+  
+  const recentlyAccessed = links.filter(link => {
+    const hourAgo = Date.now() - (60 * 60 * 1000);
+    return link.lastAccessedAt && link.lastAccessedAt > hourAgo;
+  });
+  
+  console.log(`${recentlyAccessed.length} links accessed in last hour`);
+}
+```
+
+## Best Practices
+
+1. **Handle Failures Gracefully**: Don't block access if tracking fails
+2. **Background Tracking**: Track asynchronously without blocking UI
+3. **Combine with Analytics**: Use both blockchain and traditional analytics
+4. **Privacy Considerations**: Be transparent about tracking
+
+## Related
+
+- [Create Shareable Link](/docs/api/create-shareable-link) - Create links to track
+- [List Shareable Links](/docs/api/list-shareable-links) - View tracking stats
+- [Get Shareable Link](/docs/api/get-shareable-link) - Get single link with stats
+- [Deactivate Shareable Link](/docs/api/deactivate-shareable-link) - Disable links

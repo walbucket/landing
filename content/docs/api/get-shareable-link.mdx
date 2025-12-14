@@ -1,0 +1,306 @@
+# Get Shareable Link
+
+Retrieve detailed information about a specific shareable link, including access statistics and configuration.
+
+## Method Signature
+
+```typescript
+getShareableLink(linkId: string): Promise<ShareableLink>
+```
+
+## Parameters
+
+### `linkId` (required)
+
+The ID of the ShareableLink to retrieve.
+
+- Type: `string`
+- Format: Sui object ID (0x...)
+
+## Returns
+
+`Promise<ShareableLink>` - The shareable link object
+
+### ShareableLink Object
+
+```typescript
+interface ShareableLink {
+  id: string;              // Link ID
+  assetId: string;         // Asset ID
+  owner: string;           // Link creator address
+  shareToken: string;      // Unique token for the link
+  canRead: boolean;        // Read permission
+  canWrite: boolean;       // Write permission
+  canAdmin: boolean;       // Admin permission
+  expiresAt?: number;      // Expiration timestamp (ms)
+  passwordHash?: string;   // Password hash if protected
+  createdAt: number;       // Creation timestamp
+  accessCount: number;     // Number of times accessed
+  lastAccessedAt?: number; // Last access timestamp
+  isActive: boolean;       // Whether link is active
+}
+```
+
+## Examples
+
+### Get Link Details
+
+```typescript
+const link = await walbucket.getShareableLink(linkId);
+
+console.log('Link Details:');
+console.log(`Token: ${link.shareToken}`);
+console.log(`Asset: ${link.assetId}`);
+console.log(`Active: ${link.isActive}`);
+console.log(`Accessed: ${link.accessCount} times`);
+```
+
+### Check if Link is Valid
+
+```typescript
+async function isLinkValid(linkId: string): Promise<boolean> {
+  try {
+    const link = await walbucket.getShareableLink(linkId);
+    
+    if (!link.isActive) return false;
+    if (link.expiresAt && link.expiresAt < Date.now()) return false;
+    
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Usage
+if (await isLinkValid(linkId)) {
+  console.log('Link is valid and can be used');
+}
+```
+
+### Get Link by Token
+
+```typescript
+async function getLinkByToken(shareToken: string) {
+  const allLinks = await walbucket.listShareableLinks();
+  const link = allLinks.find(l => l.shareToken === shareToken);
+  
+  if (!link) {
+    throw new Error('Link not found');
+  }
+  
+  // Get full details
+  return await walbucket.getShareableLink(link.id);
+}
+```
+
+### Display Link Card
+
+```typescript
+async function renderLinkCard(linkId: string) {
+  const link = await walbucket.getShareableLink(linkId);
+  const asset = await walbucket.getAsset(link.assetId);
+  
+  return (
+    <div className="link-card">
+      <h3>{asset.name}</h3>
+      
+      <div className="link-url">
+        <code>{window.location.origin}/share/{link.shareToken}</code>
+        <button onClick={() => copyToClipboard(link.shareToken)}>
+          Copy
+        </button>
+      </div>
+      
+      <div className="link-stats">
+        <span>Accessed: {link.accessCount} times</span>
+        {link.lastAccessedAt && (
+          <span>
+            Last: {new Date(link.lastAccessedAt).toLocaleString()}
+          </span>
+        )}
+      </div>
+      
+      <div className="link-status">
+        <span className={link.isActive ? 'active' : 'inactive'}>
+          {link.isActive ? '✅ Active' : '❌ Deactivated'}
+        </span>
+        {link.expiresAt && (
+          <span>
+            Expires: {new Date(link.expiresAt).toLocaleString()}
+          </span>
+        )}
+      </div>
+      
+      <div className="link-permissions">
+        Permissions: 
+        {link.canRead && ' Read'}
+        {link.canWrite && ' Write'}
+        {link.canAdmin && ' Admin'}
+      </div>
+      
+      {link.passwordHash && (
+        <span className="password-protected">🔒 Password Protected</span>
+      )}
+      
+      {link.isActive && (
+        <button onClick={() => handleDeactivate(link.id)}>
+          Deactivate Link
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
+### Monitor Link Usage
+
+```typescript
+async function monitorLinkUsage(linkId: string) {
+  const link = await walbucket.getShareableLink(linkId);
+  
+  console.log('Link Usage Report:');
+  console.log(`Token: ${link.shareToken}`);
+  console.log(`Total Accesses: ${link.accessCount}`);
+  
+  if (link.lastAccessedAt) {
+    const timeSinceAccess = Date.now() - link.lastAccessedAt;
+    const hoursSince = Math.floor(timeSinceAccess / (60 * 60 * 1000));
+    console.log(`Last accessed: ${hoursSince} hours ago`);
+  } else {
+    console.log('Never accessed');
+  }
+  
+  if (link.expiresAt) {
+    const timeUntilExpiry = link.expiresAt - Date.now();
+    const hoursUntil = Math.floor(timeUntilExpiry / (60 * 60 * 1000));
+    
+    if (hoursUntil > 0) {
+      console.log(`Expires in: ${hoursUntil} hours`);
+    } else {
+      console.log('Expired');
+    }
+  }
+}
+```
+
+### Access Analytics
+
+```typescript
+async function getLinkAnalytics(linkId: string) {
+  const link = await walbucket.getShareableLink(linkId);
+  
+  const daysSinceCreation = (Date.now() - link.createdAt) / (24 * 60 * 60 * 1000);
+  const accessesPerDay = link.accessCount / daysSinceCreation;
+  
+  return {
+    linkId: link.id,
+    shareToken: link.shareToken,
+    totalAccesses: link.accessCount,
+    averageAccessesPerDay: Math.round(accessesPerDay * 100) / 100,
+    daysSinceCreation: Math.round(daysSinceCreation),
+    lastAccessed: link.lastAccessedAt 
+      ? new Date(link.lastAccessedAt)
+      : null,
+    status: link.isActive ? 'active' : 'deactivated',
+    hasPassword: !!link.passwordHash
+  };
+}
+```
+
+### Validate Before Tracking
+
+```typescript
+async function trackIfValid(linkId: string) {
+  const link = await walbucket.getShareableLink(linkId);
+  
+  if (!link.isActive) {
+    throw new Error('Link is deactivated');
+  }
+  
+  if (link.expiresAt && link.expiresAt < Date.now()) {
+    throw new Error('Link has expired');
+  }
+  
+  // Link is valid, track access
+  await walbucket.trackLinkAccess(linkId);
+}
+```
+
+## Error Handling
+
+```typescript
+try {
+  const link = await walbucket.getShareableLink(linkId);
+  console.log('Link found:', link);
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.error('Invalid link ID');
+  } else if (error instanceof BlockchainError) {
+    if (error.message.includes('not found')) {
+      console.error('Link not found or has been deleted');
+    } else {
+      console.error('Blockchain error:', error.message);
+    }
+  }
+}
+```
+
+## Notes
+
+- Returns full link details including access statistics
+- Link must exist on blockchain
+- Works for both active and deactivated links
+- Use `isActive` to check if link can be used
+- Check `expiresAt` to determine if link has expired
+- `accessCount` is only updated when `trackLinkAccess()` is called
+
+## Use Cases
+
+### Link Dashboard
+
+```typescript
+async function createLinkDashboard() {
+  const links = await walbucket.listShareableLinks();
+  const linkDetails = await Promise.all(
+    links.map(l => walbucket.getShareableLink(l.id))
+  );
+  
+  // Calculate stats
+  const totalAccesses = linkDetails.reduce((sum, l) => sum + l.accessCount, 0);
+  const activeCount = linkDetails.filter(l => l.isActive).length;
+  
+  return {
+    totalLinks: linkDetails.length,
+    activeLinks: activeCount,
+    totalAccesses,
+    links: linkDetails
+  };
+}
+```
+
+### Link Health Check
+
+```typescript
+async function checkLinkHealth(linkId: string) {
+  const link = await walbucket.getShareableLink(linkId);
+  
+  const health = {
+    isAccessible: link.isActive && 
+      (!link.expiresAt || link.expiresAt > Date.now()),
+    hasBeenUsed: link.accessCount > 0,
+    daysSinceCreated: (Date.now() - link.createdAt) / (24 * 60 * 60 * 1000),
+    daysUntilExpiry: link.expiresAt 
+      ? (link.expiresAt - Date.now()) / (24 * 60 * 60 * 1000)
+      : Infinity
+  };
+  
+  return health;
+}
+```
+
+## Related
+
+- [List Shareable Links](/docs/api/list-shareable-links) - List all links
+- [Create Shareable Link](/docs/api/create-shareable-link) - Create links
+- [Deactivate Shareable Link](/docs/api/deactivate-shareable-link) - Disable links
+- [Track Link Access](/docs/api/track-link-access) - Update access stats

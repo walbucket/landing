@@ -1,0 +1,536 @@
+# Sharing Workflows
+
+Complete examples for implementing private sharing with access grants and public sharing with shareable links.
+
+## Private Sharing with Access Grants
+
+Share assets with specific wallet addresses with granular permissions.
+
+### Basic Team Sharing
+
+```typescript
+import { Walbucket } from '@walbucket/sdk';
+
+const walbucket = new Walbucket({
+  apiKey: process.env.WALBUCKET_API_KEY!,
+  network: 'testnet',
+  sponsorPrivateKey: process.env.SPONSOR_PRIVATE_KEY!,
+});
+
+async function shareWithTeam(assetId: string) {
+  const team = [
+    {
+      address: '0x123...',
+      role: 'viewer',
+      name: 'Alice',
+    },
+    {
+      address: '0x456...',
+      role: 'editor',
+      name: 'Bob',
+    },
+    {
+      address: '0x789...',
+      role: 'admin',
+      name: 'Charlie',
+    },
+  ];
+  
+  for (const member of team) {
+    const permissions = {
+      canRead: true,
+      canWrite: member.role === 'editor' || member.role === 'admin',
+      canAdmin: member.role === 'admin',
+    };
+    
+    await walbucket.shareAsset(assetId, member.address, permissions);
+    console.log(`Shared with ${member.name} (${member.role})`);
+  }
+}
+```
+
+### Time-Limited Client Access
+
+```typescript
+async function shareWithClient(
+  assetId: string,
+  clientAddress: string,
+  durationDays: number
+) {
+  const expiresAt = Date.now() + (durationDays * 24 * 60 * 60 * 1000);
+  
+  await walbucket.shareAsset(assetId, clientAddress, {
+    canRead: true,
+    canWrite: false,
+    expiresAt,
+  });
+  
+  const expiryDate = new Date(expiresAt).toLocaleDateString();
+  console.log(`Shared with client (expires: ${expiryDate})`);
+  
+  return expiresAt;
+}
+
+// Share for 14 days
+await shareWithClient(assetId, clientAddress, 14);
+```
+
+### Password-Protected Sharing
+
+```typescript
+import { createHash } from 'crypto';
+
+async function shareWithPassword(
+  assetId: string,
+  recipientAddress: string,
+  password: string
+) {
+  // Hash the password
+  const passwordHash = createHash('sha256')
+    .update(password)
+    .digest('hex');
+  
+  await walbucket.shareAsset(assetId, recipientAddress, {
+    canRead: true,
+    passwordHash,
+  });
+  
+  console.log('Shared with password protection');
+  // Send password to recipient through secure channel
+}
+```
+
+### Managing Access Grants
+
+```typescript
+async function manageProjectAccess(projectAssets: string[]) {
+  // Share all project assets with team
+  const teamMember = '0x123...';
+  
+  for (const assetId of projectAssets) {
+    await walbucket.shareAsset(assetId, teamMember, {
+      canRead: true,
+      canWrite: true,
+    });
+  }
+  
+  console.log(`Shared ${projectAssets.length} assets`);
+  
+  // View all grants
+  const grants = await walbucket.listAccessGrants();
+  const teamGrants = grants.filter(g => g.grantedTo === teamMember);
+  
+  console.log(`Team member has access to ${teamGrants.length} assets`);
+  
+  return teamGrants;
+}
+```
+
+### Revoking Access
+
+```typescript
+async function revokeTeamMemberAccess(memberAddress: string) {
+  // Get all grants for this member
+  const grants = await walbucket.listAccessGrants();
+  const memberGrants = grants.filter(g => 
+    g.grantedTo === memberAddress && g.isActive
+  );
+  
+  console.log(`Revoking ${memberGrants.length} grants...`);
+  
+  // Revoke all grants
+  for (const grant of memberGrants) {
+    await walbucket.revokeShare(grant.id);
+    console.log(`Revoked: ${grant.assetId}`);
+  }
+  
+  console.log('All access revoked');
+}
+```
+
+## Public Sharing with Shareable Links
+
+Create public links for wider distribution.
+
+### Basic Link Creation
+
+```typescript
+async function createPublicLink(assetId: string) {
+  // Generate unique token
+  const shareToken = crypto.randomUUID();
+  
+  // Create link
+  await walbucket.createShareableLink(assetId, {
+    shareToken,
+    canRead: true,
+  });
+  
+  // Construct URL
+  const shareUrl = `${window.location.origin}/share/${shareToken}`;
+  
+  console.log('Share this link:', shareUrl);
+  return shareUrl;
+}
+```
+
+### Expiring Links
+
+```typescript
+async function createExpiringLink(
+  assetId: string,
+  duration: '1h' | '24h' | '7d' | '30d'
+) {
+  const durations = {
+    '1h': 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
+    '30d': 30 * 24 * 60 * 60 * 1000,
+  };
+  
+  const shareToken = crypto.randomUUID();
+  const expiresAt = Date.now() + durations[duration];
+  
+  await walbucket.createShareableLink(assetId, {
+    shareToken,
+    canRead: true,
+    expiresAt,
+  });
+  
+  const shareUrl = `${window.location.origin}/share/${shareToken}`;
+  const expiryDate = new Date(expiresAt);
+  
+  return {
+    url: shareUrl,
+    expiresAt: expiryDate,
+    duration,
+  };
+}
+
+// Usage
+const link = await createExpiringLink(assetId, '7d');
+console.log(`Link expires: ${link.expiresAt.toLocaleString()}`);
+```
+
+### Password-Protected Links
+
+```typescript
+import { createHash } from 'crypto';
+
+async function createProtectedLink(
+  assetId: string,
+  password: string
+) {
+  const shareToken = crypto.randomUUID();
+  const passwordHash = createHash('sha256')
+    .update(password)
+    .digest('hex');
+  
+  await walbucket.createShareableLink(assetId, {
+    shareToken,
+    canRead: true,
+    passwordHash,
+  });
+  
+  const shareUrl = `${window.location.origin}/share/${shareToken}`;
+  
+  return {
+    url: shareUrl,
+    password, // Share password separately
+  };
+}
+```
+
+### Link Management Dashboard
+
+```typescript
+async function getLinkStats() {
+  const links = await walbucket.listShareableLinks();
+  
+  const stats = {
+    total: links.length,
+    active: links.filter(l => l.isActive).length,
+    expired: links.filter(l => 
+      l.expiresAt && l.expiresAt < Date.now()
+    ).length,
+    totalAccesses: links.reduce((sum, l) => sum + l.accessCount, 0),
+  };
+  
+  // Find most accessed links
+  const topLinks = links
+    .sort((a, b) => b.accessCount - a.accessCount)
+    .slice(0, 5);
+  
+  console.log('Link Statistics:');
+  console.log(`Total: ${stats.total}`);
+  console.log(`Active: ${stats.active}`);
+  console.log(`Expired: ${stats.expired}`);
+  console.log(`Total Accesses: ${stats.totalAccesses}`);
+  
+  console.log('\nTop 5 Links:');
+  topLinks.forEach((link, i) => {
+    console.log(`${i + 1}. ${link.shareToken}: ${link.accessCount} accesses`);
+  });
+  
+  return { stats, topLinks };
+}
+```
+
+### Link Access Tracking
+
+```typescript
+// In your share page route
+async function handleLinkAccess(shareToken: string) {
+  try {
+    // Find the link
+    const links = await walbucket.listShareableLinks();
+    const link = links.find(l => l.shareToken === shareToken);
+    
+    if (!link) {
+      throw new Error('Link not found');
+    }
+    
+    // Check if active
+    if (!link.isActive) {
+      throw new Error('Link has been deactivated');
+    }
+    
+    // Check expiration
+    if (link.expiresAt && link.expiresAt < Date.now()) {
+      throw new Error('Link has expired');
+    }
+    
+    // Track access (user-pays mode)
+    await walbucket.trackLinkAccess(link.id);
+    
+    // Retrieve the asset
+    const asset = await walbucket.retrieve(link.assetId);
+    
+    return asset;
+  } catch (error) {
+    console.error('Access denied:', error.message);
+    throw error;
+  }
+}
+```
+
+### Rotating Links
+
+```typescript
+async function rotateShareLink(oldLinkId: string, assetId: string) {
+  // Deactivate old link
+  await walbucket.deactivateShareableLink(oldLinkId);
+  console.log('Old link deactivated');
+  
+  // Create new link
+  const shareToken = crypto.randomUUID();
+  await walbucket.createShareableLink(assetId, {
+    shareToken,
+    canRead: true,
+    expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 days
+  });
+  
+  const newUrl = `${window.location.origin}/share/${shareToken}`;
+  console.log('New link created:', newUrl);
+  
+  return newUrl;
+}
+```
+
+## Complete Sharing UI Example
+
+```typescript
+import { useState } from 'react';
+import { Walbucket } from '@walbucket/sdk';
+
+function ShareDialog({ assetId, walbucket }) {
+  const [shareType, setShareType] = useState<'private' | 'public'>('private');
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [duration, setDuration] = useState('7d');
+  const [permissions, setPermissions] = useState({
+    canRead: true,
+    canWrite: false,
+    canAdmin: false,
+  });
+  
+  async function handlePrivateShare() {
+    const expiresAt = duration !== 'never' 
+      ? Date.now() + getDurationMs(duration)
+      : undefined;
+    
+    await walbucket.shareAsset(assetId, recipientAddress, {
+      ...permissions,
+      expiresAt,
+    });
+    
+    alert('Shared successfully!');
+  }
+  
+  async function handlePublicShare() {
+    const shareToken = crypto.randomUUID();
+    const expiresAt = duration !== 'never'
+      ? Date.now() + getDurationMs(duration)
+      : undefined;
+    
+    await walbucket.createShareableLink(assetId, {
+      shareToken,
+      canRead: true,
+      expiresAt,
+    });
+    
+    const url = `${window.location.origin}/share/${shareToken}`;
+    
+    // Copy to clipboard
+    await navigator.clipboard.writeText(url);
+    alert('Link copied to clipboard!');
+  }
+  
+  return (
+    <div className="share-dialog">
+      <h3>Share Asset</h3>
+      
+      {/* Share Type Selector */}
+      <div className="share-type">
+        <button 
+          onClick={() => setShareType('private')}
+          className={shareType === 'private' ? 'active' : ''}
+        >
+          Private (Specific Users)
+        </button>
+        <button 
+          onClick={() => setShareType('public')}
+          className={shareType === 'public' ? 'active' : ''}
+        >
+          Public Link
+        </button>
+      </div>
+      
+      {shareType === 'private' ? (
+        <div className="private-share">
+          <input
+            type="text"
+            placeholder="Recipient Wallet Address (0x...)"
+            value={recipientAddress}
+            onChange={(e) => setRecipientAddress(e.target.value)}
+          />
+          
+          <div className="permissions">
+            <label>
+              <input
+                type="checkbox"
+                checked={permissions.canRead}
+                onChange={(e) => setPermissions({
+                  ...permissions,
+                  canRead: e.target.checked
+                })}
+              />
+              Read
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={permissions.canWrite}
+                onChange={(e) => setPermissions({
+                  ...permissions,
+                  canWrite: e.target.checked
+                })}
+              />
+              Write
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={permissions.canAdmin}
+                onChange={(e) => setPermissions({
+                  ...permissions,
+                  canAdmin: e.target.checked
+                })}
+              />
+              Admin
+            </label>
+          </div>
+          
+          <select value={duration} onChange={(e) => setDuration(e.target.value)}>
+            <option value="1h">1 Hour</option>
+            <option value="24h">24 Hours</option>
+            <option value="7d">7 Days</option>
+            <option value="30d">30 Days</option>
+            <option value="never">Never Expires</option>
+          </select>
+          
+          <button onClick={handlePrivateShare}>
+            Share with User
+          </button>
+        </div>
+      ) : (
+        <div className="public-share">
+          <select value={duration} onChange={(e) => setDuration(e.target.value)}>
+            <option value="1h">1 Hour</option>
+            <option value="24h">24 Hours</option>
+            <option value="7d">7 Days</option>
+            <option value="30d">30 Days</option>
+            <option value="never">Never Expires</option>
+          </select>
+          
+          <button onClick={handlePublicShare}>
+            Create & Copy Link
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getDurationMs(duration: string): number {
+  const durations = {
+    '1h': 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
+    '30d': 30 * 24 * 60 * 60 * 1000,
+  };
+  return durations[duration] || 0;
+}
+```
+
+## Best Practices
+
+### Choose the Right Sharing Method
+
+```typescript
+// Use private sharing (access grants) when:
+// - Sharing with known wallet addresses
+// - Need granular permissions (write, admin)
+// - Want to easily revoke access
+// - Tracking who has access
+
+// Use public links when:
+// - Sharing with unknown users
+// - Need a simple URL to share
+// - Want to track link usage
+// - Temporary public access needed
+```
+
+### Security Considerations
+
+```typescript
+// Always use expiration for sensitive content
+const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+
+// Use password protection for public links
+const passwordHash = createHash('sha256').update('secret').digest('hex');
+
+// Audit access regularly
+const grants = await walbucket.listAccessGrants();
+grants.forEach(grant => {
+  if (grant.expiresAt && grant.expiresAt < Date.now()) {
+    console.warn('Expired grant still active:', grant.id);
+  }
+});
+```
+
+## Related
+
+- [Share Asset](/docs/api/share-asset)
+- [Create Shareable Link](/docs/api/create-shareable-link)
+- [Revoke Share](/docs/api/revoke-share)
+- [List Access Grants](/docs/api/list-access-grants)
+- [List Shareable Links](/docs/api/list-shareable-links)

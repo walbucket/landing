@@ -1,0 +1,411 @@
+# Folder Organization
+
+Learn how to organize your assets using folders, create hierarchies, and manage files efficiently.
+
+## Creating a Folder Structure
+
+Build a complete folder hierarchy for a project:
+
+```typescript
+import { Walbucket } from '@walbucket/sdk';
+
+const walbucket = new Walbucket({
+  apiKey: process.env.WALBUCKET_API_KEY!,
+  network: 'testnet',
+  sponsorPrivateKey: process.env.SPONSOR_PRIVATE_KEY!,
+});
+
+async function setupProjectFolders() {
+  // Create root project folder
+  const projectId = await walbucket.createFolder('My Project');
+  console.log('Created project folder:', projectId);
+  
+  // Create subfolders
+  const docsId = await walbucket.createFolder('Documents', projectId);
+  const imagesId = await walbucket.createFolder('Images', projectId);
+  const videosId = await walbucket.createFolder('Videos', projectId);
+  
+  // Create nested folders
+  const logosId = await walbucket.createFolder('Logos', imagesId);
+  const photosId = await walbucket.createFolder('Photos', imagesId);
+  
+  return {
+    project: projectId,
+    documents: docsId,
+    images: imagesId,
+    videos: videosId,
+    logos: logosId,
+    photos: photosId,
+  };
+}
+
+// Usage
+const folders = await setupProjectFolders();
+```
+
+## Upload Files to Folders
+
+Upload files directly into specific folders:
+
+```typescript
+async function uploadToFolders(folders: any) {
+  // Upload a document
+  const doc = await walbucket.upload(documentFile, {
+    name: 'Project Requirements.pdf',
+    folder: folders.documents,
+    category: 'documentation',
+    tags: ['requirements', 'specs'],
+  });
+  
+  // Upload a logo
+  const logo = await walbucket.upload(logoFile, {
+    name: 'company-logo.png',
+    folder: folders.logos,
+    category: 'branding',
+    tags: ['logo', 'branding'],
+  });
+  
+  // Upload a photo
+  const photo = await walbucket.upload(photoFile, {
+    name: 'team-photo.jpg',
+    folder: folders.photos,
+    category: 'photography',
+    tags: ['team', 'office'],
+  });
+  
+  console.log('Uploaded files to folders');
+  
+  return { doc, logo, photo };
+}
+```
+
+## Move Files Between Folders
+
+Reorganize files by moving them between folders:
+
+```typescript
+async function reorganizeFiles(assetId: string, newFolderId: string) {
+  try {
+    // Move file to new folder
+    await walbucket.moveToFolder(assetId, newFolderId);
+    console.log('File moved successfully');
+  } catch (error) {
+    console.error('Failed to move file:', error);
+  }
+}
+
+// Move file to root (no folder)
+async function moveToRoot(assetId: string) {
+  await walbucket.moveToFolder(assetId); // undefined = root
+  console.log('Moved to root directory');
+}
+```
+
+## List Folder Contents
+
+Retrieve all folders and their contents:
+
+```typescript
+async function listFolderContents(ownerAddress: string) {
+  // Get all folders
+  const folders = await walbucket.listFolders(ownerAddress);
+  console.log(`Total folders: ${folders.length}`);
+  
+  // Get all assets
+  const assets = await walbucket.list(ownerAddress);
+  
+  // Group assets by folder
+  const assetsByFolder = assets.reduce((acc, asset) => {
+    const folderId = asset.folderId || 'root';
+    if (!acc[folderId]) {
+      acc[folderId] = [];
+    }
+    acc[folderId].push(asset);
+    return acc;
+  }, {} as Record<string, typeof assets>);
+  
+  // Display folder structure
+  folders.forEach(folder => {
+    const count = assetsByFolder[folder.id]?.length || 0;
+    console.log(`📁 ${folder.name}: ${count} files`);
+  });
+  
+  // Root files
+  const rootCount = assetsByFolder['root']?.length || 0;
+  console.log(`📄 Root: ${rootCount} files`);
+  
+  return { folders, assetsByFolder };
+}
+```
+
+## Complete File Manager Example
+
+Build a complete file manager with folder navigation:
+
+```typescript
+interface FileManagerState {
+  currentFolder: string | null;
+  folders: any[];
+  assets: any[];
+}
+
+class FileManager {
+  private walbucket: Walbucket;
+  private state: FileManagerState;
+  
+  constructor(walbucket: Walbucket) {
+    this.walbucket = walbucket;
+    this.state = {
+      currentFolder: null,
+      folders: [],
+      assets: [],
+    };
+  }
+  
+  async initialize(ownerAddress: string) {
+    // Load all folders and assets
+    this.state.folders = await this.walbucket.listFolders(ownerAddress);
+    this.state.assets = await this.walbucket.list(ownerAddress);
+    console.log('File manager initialized');
+  }
+  
+  getCurrentFolderContents() {
+    // Get assets in current folder
+    return this.state.assets.filter(asset => 
+      asset.folderId === this.state.currentFolder
+    );
+  }
+  
+  getSubfolders() {
+    // Get folders inside current folder
+    return this.state.folders.filter(folder =>
+      folder.parentId === this.state.currentFolder
+    );
+  }
+  
+  async navigateToFolder(folderId: string | null) {
+    this.state.currentFolder = folderId;
+    console.log(`Navigated to: ${folderId || 'Root'}`);
+  }
+  
+  async createFolder(name: string) {
+    const folderId = await this.walbucket.createFolder(
+      name,
+      this.state.currentFolder || undefined
+    );
+    
+    // Refresh folders list
+    await this.initialize(/* ownerAddress */);
+    
+    return folderId;
+  }
+  
+  async uploadFile(file: File, options: any = {}) {
+    const result = await this.walbucket.upload(file, {
+      ...options,
+      folder: this.state.currentFolder || undefined,
+    });
+    
+    // Refresh assets list
+    await this.initialize(/* ownerAddress */);
+    
+    return result;
+  }
+  
+  async moveFile(assetId: string, targetFolderId: string | null) {
+    await this.walbucket.moveToFolder(assetId, targetFolderId || undefined);
+    
+    // Refresh assets list
+    await this.initialize(/* ownerAddress */);
+  }
+  
+  async deleteFolder(folderId: string) {
+    await this.walbucket.deleteFolder(folderId);
+    
+    // Navigate to parent if we're in the deleted folder
+    if (this.state.currentFolder === folderId) {
+      const folder = this.state.folders.find(f => f.id === folderId);
+      this.state.currentFolder = folder?.parentId || null;
+    }
+    
+    // Refresh folders list
+    await this.initialize(/* ownerAddress */);
+  }
+  
+  getBreadcrumbs(): Array<{ id: string | null; name: string }> {
+    const breadcrumbs: Array<{ id: string | null; name: string }> = [
+      { id: null, name: 'Root' }
+    ];
+    
+    let current = this.state.currentFolder;
+    while (current) {
+      const folder = this.state.folders.find(f => f.id === current);
+      if (!folder) break;
+      
+      breadcrumbs.unshift({ id: folder.id, name: folder.name });
+      current = folder.parentId;
+    }
+    
+    return breadcrumbs;
+  }
+}
+
+// Usage
+const manager = new FileManager(walbucket);
+await manager.initialize(userAddress);
+
+// Navigate folders
+await manager.navigateToFolder('folder-id-123');
+
+// Get current contents
+const files = manager.getCurrentFolderContents();
+const folders = manager.getSubfolders();
+
+// Upload to current folder
+await manager.uploadFile(file, { name: 'document.pdf' });
+
+// Create subfolder
+await manager.createFolder('New Subfolder');
+```
+
+## React Component Example
+
+Build a folder browser component:
+
+```typescript
+import { useState, useEffect } from 'react';
+import { Walbucket } from '@walbucket/sdk';
+
+function FolderBrowser({ walbucket, userAddress }) {
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [folders, setFolders] = useState([]);
+  const [assets, setAssets] = useState([]);
+  
+  useEffect(() => {
+    loadData();
+  }, [userAddress]);
+  
+  async function loadData() {
+    const [foldersList, assetsList] = await Promise.all([
+      walbucket.listFolders(userAddress),
+      walbucket.list(userAddress),
+    ]);
+    
+    setFolders(foldersList);
+    setAssets(assetsList);
+  }
+  
+  const currentAssets = assets.filter(
+    a => a.folderId === currentFolder
+  );
+  
+  const subfolders = folders.filter(
+    f => f.parentId === currentFolder
+  );
+  
+  const breadcrumbs = getBreadcrumbs(currentFolder, folders);
+  
+  return (
+    <div>
+      {/* Breadcrumbs */}
+      <div className="breadcrumbs">
+        {breadcrumbs.map((crumb, i) => (
+          <span key={i}>
+            <button onClick={() => setCurrentFolder(crumb.id)}>
+              {crumb.name}
+            </button>
+            {i < breadcrumbs.length - 1 && ' > '}
+          </span>
+        ))}
+      </div>
+      
+      {/* Folders */}
+      <div className="folders">
+        <h3>Folders</h3>
+        {subfolders.map(folder => (
+          <div 
+            key={folder.id}
+            onClick={() => setCurrentFolder(folder.id)}
+            className="folder-item"
+          >
+            📁 {folder.name}
+          </div>
+        ))}
+      </div>
+      
+      {/* Files */}
+      <div className="files">
+        <h3>Files</h3>
+        {currentAssets.map(asset => (
+          <div key={asset.assetId} className="file-item">
+            📄 {asset.name}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getBreadcrumbs(currentId, folders) {
+  const breadcrumbs = [{ id: null, name: 'Root' }];
+  let current = currentId;
+  
+  while (current) {
+    const folder = folders.find(f => f.id === current);
+    if (!folder) break;
+    breadcrumbs.unshift({ id: folder.id, name: folder.name });
+    current = folder.parentId;
+  }
+  
+  return breadcrumbs;
+}
+```
+
+## Best Practices
+
+### Folder Naming
+```typescript
+// Good: Clear, descriptive names
+await walbucket.createFolder('Project Alpha - Documents');
+await walbucket.createFolder('Q4 2024 Reports');
+await walbucket.createFolder('Marketing Assets');
+
+// Avoid: Generic or unclear names
+// await walbucket.createFolder('Folder1');
+// await walbucket.createFolder('Stuff');
+```
+
+### Folder Depth
+```typescript
+// Good: Reasonable depth (2-3 levels)
+// Root > Projects > Project Alpha > Documents
+
+// Avoid: Too deep (hard to navigate)
+// Root > Projects > 2024 > Q4 > November > Week 1 > Day 1
+```
+
+### Error Handling
+```typescript
+async function safeCreateFolder(name: string, parentId?: string) {
+  try {
+    const folderId = await walbucket.createFolder(name, parentId);
+    return { success: true, folderId };
+  } catch (error) {
+    if (error.message.includes('E_NOT_OWNER')) {
+      return { success: false, error: 'Not folder owner' };
+    }
+    if (error.message.includes('already exists')) {
+      return { success: false, error: 'Folder name exists' };
+    }
+    return { success: false, error: error.message };
+  }
+}
+```
+
+## Related
+
+- [Create Folder](/docs/api/create-folder)
+- [Delete Folder](/docs/api/delete-folder)
+- [Move to Folder](/docs/api/move-to-folder)
+- [Upload](/docs/api/upload)
+- [List](/docs/api/list)

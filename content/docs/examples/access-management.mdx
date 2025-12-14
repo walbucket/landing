@@ -1,0 +1,556 @@
+# Access Management
+
+Complete examples for managing access control, monitoring permissions, and implementing security best practices.
+
+## Access Dashboard
+
+Build a comprehensive access management dashboard:
+
+```typescript
+import { Walbucket } from '@walbucket/sdk';
+
+const walbucket = new Walbucket({
+  apiKey: process.env.WALBUCKET_API_KEY!,
+  network: 'testnet',
+  sponsorPrivateKey: process.env.SPONSOR_PRIVATE_KEY!,
+});
+
+async function getAccessOverview() {
+  // Get all grants and links
+  const [grants, links] = await Promise.all([
+    walbucket.listAccessGrants(),
+    walbucket.listShareableLinks(),
+  ]);
+  
+  const stats = {
+    // Access Grants
+    totalGrants: grants.length,
+    activeGrants: grants.filter(g => g.isActive).length,
+    expiredGrants: grants.filter(g => 
+      g.expiresAt && g.expiresAt < Date.now()
+    ).length,
+    grantsByPermission: {
+      readOnly: grants.filter(g => g.canRead && !g.canWrite && !g.canAdmin).length,
+      editor: grants.filter(g => g.canRead && g.canWrite && !g.canAdmin).length,
+      admin: grants.filter(g => g.canAdmin).length,
+    },
+    
+    // Shareable Links
+    totalLinks: links.length,
+    activeLinks: links.filter(l => l.isActive).length,
+    expiredLinks: links.filter(l => 
+      l.expiresAt && l.expiresAt < Date.now()
+    ).length,
+    totalLinkAccesses: links.reduce((sum, l) => sum + l.accessCount, 0),
+  };
+  
+  console.log('=== Access Overview ===');
+  console.log(`Access Grants: ${stats.totalGrants} (${stats.activeGrants} active)`);
+  console.log(`  Read-only: ${stats.grantsByPermission.readOnly}`);
+  console.log(`  Editor: ${stats.grantsByPermission.editor}`);
+  console.log(`  Admin: ${stats.grantsByPermission.admin}`);
+  console.log(`Shareable Links: ${stats.totalLinks} (${stats.activeLinks} active)`);
+  console.log(`  Total Accesses: ${stats.totalLinkAccesses}`);
+  
+  return stats;
+}
+```
+
+## Permission Audit
+
+Audit permissions across all assets:
+
+```typescript
+async function auditPermissions() {
+  const grants = await walbucket.listAccessGrants();
+  const assets = await walbucket.list();
+  
+  // Group grants by asset
+  const grantsByAsset = grants.reduce((acc, grant) => {
+    if (!acc[grant.assetId]) {
+      acc[grant.assetId] = [];
+    }
+    acc[grant.assetId].push(grant);
+    return acc;
+  }, {} as Record<string, typeof grants>);
+  
+  // Audit findings
+  const findings = {
+    assetsWithAdminAccess: [],
+    assetsWithManyGrants: [],
+    expiredGrantsNotRevoked: [],
+    publiclySharedAssets: [],
+  };
+  
+  for (const asset of assets) {
+    const assetGrants = grantsByAsset[asset.assetId] || [];
+    
+    // Check for admin access
+    const adminGrants = assetGrants.filter(g => g.canAdmin && g.isActive);
+    if (adminGrants.length > 0) {
+      findings.assetsWithAdminAccess.push({
+        assetId: asset.assetId,
+        name: asset.name,
+        adminCount: adminGrants.length,
+      });
+    }
+    
+    // Check for many grants
+    if (assetGrants.length > 5) {
+      findings.assetsWithManyGrants.push({
+        assetId: asset.assetId,
+        name: asset.name,
+        grantCount: assetGrants.length,
+      });
+    }
+    
+    // Check for expired but not revoked
+    const expiredActive = assetGrants.filter(g => 
+      g.isActive && g.expiresAt && g.expiresAt < Date.now()
+    );
+    if (expiredActive.length > 0) {
+      findings.expiredGrantsNotRevoked.push({
+        assetId: asset.assetId,
+        name: asset.name,
+        expiredCount: expiredActive.length,
+      });
+    }
+  }
+  
+  // Check for public links
+  const links = await walbucket.listShareableLinks();
+  const activeLinks = links.filter(l => l.isActive);
+  findings.publiclySharedAssets = activeLinks.map(l => ({
+    assetId: l.assetId,
+    shareToken: l.shareToken,
+    accessCount: l.accessCount,
+  }));
+  
+  console.log('=== Security Audit ===');
+  console.log(`Assets with admin access: ${findings.assetsWithAdminAccess.length}`);
+  console.log(`Assets with many grants: ${findings.assetsWithManyGrants.length}`);
+  console.log(`Expired grants not revoked: ${findings.expiredGrantsNotRevoked.length}`);
+  console.log(`Publicly shared assets: ${findings.publiclySharedAssets.length}`);
+  
+  return findings;
+}
+```
+
+## User Access Report
+
+Generate a report of what a specific user can access:
+
+```typescript
+async function getUserAccessReport(userAddress: string) {
+  const grants = await walbucket.listAccessGrants();
+  
+  // Filter grants for this user
+  const userGrants = grants.filter(g => 
+    g.grantedTo === userAddress && g.isActive
+  );
+  
+  // Group by permission level
+  const byPermission = {
+    readOnly: userGrants.filter(g => g.canRead && !g.canWrite && !g.canAdmin),
+    editor: userGrants.filter(g => g.canRead && g.canWrite && !g.canAdmin),
+    admin: userGrants.filter(g => g.canAdmin),
+  };
+  
+  // Check for expiring soon
+  const expiringSoon = userGrants.filter(g => {
+    if (!g.expiresAt) return false;
+    const hoursRemaining = (g.expiresAt - Date.now()) / (60 * 60 * 1000);
+    return hoursRemaining > 0 && hoursRemaining < 24;
+  });
+  
+  console.log(`=== Access Report for ${userAddress} ===`);
+  console.log(`Total Access: ${userGrants.length} assets`);
+  console.log(`  Read-only: ${byPermission.readOnly.length}`);
+  console.log(`  Editor: ${byPermission.editor.length}`);
+  console.log(`  Admin: ${byPermission.admin.length}`);
+  console.log(`Expiring in 24h: ${expiringSoon.length}`);
+  
+  return {
+    totalAccess: userGrants.length,
+    byPermission,
+    expiringSoon,
+    grants: userGrants,
+  };
+}
+```
+
+## Cleanup Expired Access
+
+Automatically clean up expired grants and links:
+
+```typescript
+async function cleanupExpiredAccess() {
+  console.log('Starting cleanup...');
+  
+  // Clean up expired grants
+  const grants = await walbucket.listAccessGrants();
+  const expiredGrants = grants.filter(g => 
+    g.isActive && g.expiresAt && g.expiresAt < Date.now()
+  );
+  
+  console.log(`Found ${expiredGrants.length} expired grants`);
+  
+  for (const grant of expiredGrants) {
+    try {
+      await walbucket.revokeShare(grant.id);
+      console.log(`✓ Revoked expired grant: ${grant.id}`);
+    } catch (error) {
+      console.error(`✗ Failed to revoke ${grant.id}:`, error.message);
+    }
+  }
+  
+  // Clean up expired links
+  const links = await walbucket.listShareableLinks();
+  const expiredLinks = links.filter(l => 
+    l.isActive && l.expiresAt && l.expiresAt < Date.now()
+  );
+  
+  console.log(`Found ${expiredLinks.length} expired links`);
+  
+  for (const link of expiredLinks) {
+    try {
+      await walbucket.deactivateShareableLink(link.id);
+      console.log(`✓ Deactivated expired link: ${link.shareToken}`);
+    } catch (error) {
+      console.error(`✗ Failed to deactivate ${link.id}:`, error.message);
+    }
+  }
+  
+  console.log('Cleanup complete');
+}
+
+// Run cleanup daily
+setInterval(cleanupExpiredAccess, 24 * 60 * 60 * 1000);
+```
+
+## Access Analytics
+
+Track and analyze access patterns:
+
+```typescript
+interface AccessAnalytics {
+  period: 'day' | 'week' | 'month';
+  linkAccesses: number;
+  mostAccessedLinks: Array<{ token: string; count: number }>;
+  newGrants: number;
+  revokedGrants: number;
+  activeUsers: Set<string>;
+}
+
+async function getAccessAnalytics(period: 'day' | 'week' | 'month'): Promise<AccessAnalytics> {
+  const now = Date.now();
+  const periods = {
+    day: 24 * 60 * 60 * 1000,
+    week: 7 * 24 * 60 * 60 * 1000,
+    month: 30 * 24 * 60 * 60 * 1000,
+  };
+  const cutoff = now - periods[period];
+  
+  // Get data
+  const [grants, links] = await Promise.all([
+    walbucket.listAccessGrants(),
+    walbucket.listShareableLinks(),
+  ]);
+  
+  // Calculate analytics
+  const recentGrants = grants.filter(g => g.createdAt > cutoff);
+  const recentRevoked = grants.filter(g => 
+    !g.isActive && g.createdAt > cutoff
+  );
+  
+  const totalAccesses = links.reduce((sum, l) => sum + l.accessCount, 0);
+  const mostAccessed = links
+    .sort((a, b) => b.accessCount - a.accessCount)
+    .slice(0, 10)
+    .map(l => ({ token: l.shareToken, count: l.accessCount }));
+  
+  const activeUsers = new Set(
+    grants
+      .filter(g => g.isActive)
+      .map(g => g.grantedTo)
+  );
+  
+  return {
+    period,
+    linkAccesses: totalAccesses,
+    mostAccessedLinks: mostAccessed,
+    newGrants: recentGrants.length,
+    revokedGrants: recentRevoked.length,
+    activeUsers,
+  };
+}
+
+// Usage
+const analytics = await getAccessAnalytics('week');
+console.log(`Analytics for past ${analytics.period}:`);
+console.log(`  Link accesses: ${analytics.linkAccesses}`);
+console.log(`  New grants: ${analytics.newGrants}`);
+console.log(`  Revoked grants: ${analytics.revokedGrants}`);
+console.log(`  Active users: ${analytics.activeUsers.size}`);
+```
+
+## Role-Based Access Control (RBAC)
+
+Implement RBAC patterns:
+
+```typescript
+type Role = 'viewer' | 'editor' | 'admin' | 'owner';
+
+interface TeamMember {
+  address: string;
+  name: string;
+  role: Role;
+}
+
+class AccessControlManager {
+  private walbucket: Walbucket;
+  
+  constructor(walbucket: Walbucket) {
+    this.walbucket = walbucket;
+  }
+  
+  getPermissionsForRole(role: Role) {
+    const permissions = {
+      viewer: { canRead: true, canWrite: false, canAdmin: false },
+      editor: { canRead: true, canWrite: true, canAdmin: false },
+      admin: { canRead: true, canWrite: true, canAdmin: true },
+      owner: { canRead: true, canWrite: true, canAdmin: true },
+    };
+    return permissions[role];
+  }
+  
+  async shareWithTeam(assetId: string, team: TeamMember[]) {
+    const results = [];
+    
+    for (const member of team) {
+      if (member.role === 'owner') continue; // Skip owner
+      
+      const permissions = this.getPermissionsForRole(member.role);
+      
+      try {
+        await this.walbucket.shareAsset(assetId, member.address, permissions);
+        results.push({
+          success: true,
+          member: member.name,
+          role: member.role,
+        });
+      } catch (error) {
+        results.push({
+          success: false,
+          member: member.name,
+          error: error.message,
+        });
+      }
+    }
+    
+    return results;
+  }
+  
+  async updateMemberRole(
+    assetId: string,
+    memberAddress: string,
+    newRole: Role
+  ) {
+    // Get current grant
+    const grants = await this.walbucket.listAccessGrants();
+    const grant = grants.find(g => 
+      g.assetId === assetId && g.grantedTo === memberAddress
+    );
+    
+    if (!grant) {
+      throw new Error('Grant not found');
+    }
+    
+    // Revoke old grant
+    await this.walbucket.revokeShare(grant.id);
+    
+    // Create new grant with updated permissions
+    const permissions = this.getPermissionsForRole(newRole);
+    await this.walbucket.shareAsset(assetId, memberAddress, permissions);
+    
+    console.log(`Updated role to: ${newRole}`);
+  }
+  
+  async removeMember(assetId: string, memberAddress: string) {
+    const grants = await this.walbucket.listAccessGrants();
+    const grant = grants.find(g => 
+      g.assetId === assetId && g.grantedTo === memberAddress
+    );
+    
+    if (!grant) {
+      throw new Error('Grant not found');
+    }
+    
+    await this.walbucket.revokeShare(grant.id);
+    console.log('Member removed');
+  }
+}
+
+// Usage
+const acm = new AccessControlManager(walbucket);
+
+const team: TeamMember[] = [
+  { address: '0x111...', name: 'Alice', role: 'admin' },
+  { address: '0x222...', name: 'Bob', role: 'editor' },
+  { address: '0x333...', name: 'Charlie', role: 'viewer' },
+];
+
+// Share with team
+await acm.shareWithTeam(assetId, team);
+
+// Update role
+await acm.updateMemberRole(assetId, '0x222...', 'admin');
+
+// Remove member
+await acm.removeMember(assetId, '0x333...');
+```
+
+## React Access Management Component
+
+```typescript
+import { useState, useEffect } from 'react';
+import { Walbucket } from '@walbucket/sdk';
+
+function AccessManagement({ assetId, walbucket }) {
+  const [grants, setGrants] = useState([]);
+  const [links, setLinks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    loadAccess();
+  }, [assetId]);
+  
+  async function loadAccess() {
+    setLoading(true);
+    try {
+      const [allGrants, allLinks] = await Promise.all([
+        walbucket.listAccessGrants(),
+        walbucket.listShareableLinks(),
+      ]);
+      
+      setGrants(allGrants.filter(g => g.assetId === assetId));
+      setLinks(allLinks.filter(l => l.assetId === assetId));
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  async function handleRevoke(grantId: string) {
+    if (confirm('Revoke this access?')) {
+      await walbucket.revokeShare(grantId);
+      await loadAccess();
+    }
+  }
+  
+  async function handleDeactivateLink(linkId: string) {
+    if (confirm('Deactivate this link?')) {
+      await walbucket.deactivateShareableLink(linkId);
+      await loadAccess();
+    }
+  }
+  
+  if (loading) return <div>Loading...</div>;
+  
+  return (
+    <div className="access-management">
+      <h3>Access Management</h3>
+      
+      {/* Access Grants */}
+      <div className="grants-section">
+        <h4>Shared With ({grants.length})</h4>
+        {grants.map(grant => (
+          <div key={grant.id} className="grant-item">
+            <div>
+              <strong>{grant.grantedTo.slice(0, 10)}...</strong>
+              <div className="permissions">
+                {grant.canRead && <span>Read</span>}
+                {grant.canWrite && <span>Write</span>}
+                {grant.canAdmin && <span>Admin</span>}
+              </div>
+              {grant.expiresAt && (
+                <div className="expiry">
+                  Expires: {new Date(grant.expiresAt).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+            {grant.isActive && (
+              <button onClick={() => handleRevoke(grant.id)}>
+                Revoke
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      
+      {/* Shareable Links */}
+      <div className="links-section">
+        <h4>Public Links ({links.length})</h4>
+        {links.map(link => (
+          <div key={link.id} className="link-item">
+            <div>
+              <code>{link.shareToken}</code>
+              <div>Accessed: {link.accessCount} times</div>
+              {link.expiresAt && (
+                <div className="expiry">
+                  Expires: {new Date(link.expiresAt).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+            {link.isActive && (
+              <button onClick={() => handleDeactivateLink(link.id)}>
+                Deactivate
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+### Regular Audits
+```typescript
+// Schedule regular permission audits
+setInterval(async () => {
+  const findings = await auditPermissions();
+  if (findings.expiredGrantsNotRevoked.length > 0) {
+    await cleanupExpiredAccess();
+  }
+}, 24 * 60 * 60 * 1000); // Daily
+```
+
+### Principle of Least Privilege
+```typescript
+// Always grant minimum necessary permissions
+await walbucket.shareAsset(assetId, userAddress, {
+  canRead: true,
+  canWrite: false, // Only if truly needed
+  canAdmin: false, // Rarely needed
+});
+```
+
+### Time-Limited Access
+```typescript
+// Use expiration for temporary access
+const oneWeek = Date.now() + (7 * 24 * 60 * 60 * 1000);
+await walbucket.shareAsset(assetId, contractorAddress, {
+  canRead: true,
+  expiresAt: oneWeek,
+});
+```
+
+## Related
+
+- [Share Asset](/docs/api/share-asset)
+- [Revoke Share](/docs/api/revoke-share)
+- [List Access Grants](/docs/api/list-access-grants)
+- [List Shareable Links](/docs/api/list-shareable-links)
+- [Deactivate Shareable Link](/docs/api/deactivate-shareable-link)

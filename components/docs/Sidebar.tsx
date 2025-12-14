@@ -83,6 +83,10 @@ const navItems: NavItem[] = [
       { title: 'Basic Upload', href: '/docs/examples/basic-upload' },
       { title: 'With Encryption', href: '/docs/examples/with-encryption' },
       { title: 'Wallet Integration', href: '/docs/examples/wallet-integration' },
+      { title: 'Folder Organization', href: '/docs/examples/folder-organization' },
+      { title: 'Sharing Workflows', href: '/docs/examples/sharing-workflows' },
+      { title: 'File Operations', href: '/docs/examples/file-operations' },
+      { title: 'Access Management', href: '/docs/examples/access-management' },
     ],
   },
 ]

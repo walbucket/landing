@@ -57,6 +57,10 @@ export const docsOrder: DocPage[] = [
   { href: '/docs/examples/basic-upload', title: 'Basic Upload', slug: ['examples', 'basic-upload'] },
   { href: '/docs/examples/with-encryption', title: 'With Encryption', slug: ['examples', 'with-encryption'] },
   { href: '/docs/examples/wallet-integration', title: 'Wallet Integration', slug: ['examples', 'wallet-integration'] },
+  { href: '/docs/examples/folder-organization', title: 'Folder Organization', slug: ['examples', 'folder-organization'] },
+  { href: '/docs/examples/sharing-workflows', title: 'Sharing Workflows', slug: ['examples', 'sharing-workflows'] },
+  { href: '/docs/examples/file-operations', title: 'File Operations', slug: ['examples', 'file-operations'] },
+  { href: '/docs/examples/access-management', title: 'Access Management', slug: ['examples', 'access-management'] },
 ]
 
 /**

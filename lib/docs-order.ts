@@ -18,11 +18,34 @@ export const docsOrder: DocPage[] = [
   { href: '/docs/quick-start', title: 'Quick Start', slug: ['quick-start'] },
   { href: '/docs/configuration', title: 'Configuration', slug: ['configuration'] },
   
-  // API Reference
+  // Core API Reference
   { href: '/docs/api/upload', title: 'Upload', slug: ['api', 'upload'] },
   { href: '/docs/api/retrieve', title: 'Retrieve', slug: ['api', 'retrieve'] },
   { href: '/docs/api/delete', title: 'Delete', slug: ['api', 'delete'] },
   { href: '/docs/api/get-asset', title: 'Get Asset', slug: ['api', 'get-asset'] },
+  { href: '/docs/api/list', title: 'List', slug: ['api', 'list'] },
+  
+  // File Operations
+  { href: '/docs/api/rename', title: 'Rename', slug: ['api', 'rename'] },
+  { href: '/docs/api/copy', title: 'Copy', slug: ['api', 'copy'] },
+  
+  // Folder Management
+  { href: '/docs/api/create-folder', title: 'Create Folder', slug: ['api', 'create-folder'] },
+  { href: '/docs/api/delete-folder', title: 'Delete Folder', slug: ['api', 'delete-folder'] },
+  { href: '/docs/api/move-to-folder', title: 'Move to Folder', slug: ['api', 'move-to-folder'] },
+  
+  // Sharing & Permissions - Access Grants
+  { href: '/docs/api/share-asset', title: 'Share Asset', slug: ['api', 'share-asset'] },
+  { href: '/docs/api/revoke-share', title: 'Revoke Share', slug: ['api', 'revoke-share'] },
+  { href: '/docs/api/list-access-grants', title: 'List Access Grants', slug: ['api', 'list-access-grants'] },
+  { href: '/docs/api/get-access-grant', title: 'Get Access Grant', slug: ['api', 'get-access-grant'] },
+  
+  // Sharing & Permissions - Shareable Links
+  { href: '/docs/api/create-shareable-link', title: 'Create Shareable Link', slug: ['api', 'create-shareable-link'] },
+  { href: '/docs/api/deactivate-shareable-link', title: 'Deactivate Shareable Link', slug: ['api', 'deactivate-shareable-link'] },
+  { href: '/docs/api/track-link-access', title: 'Track Link Access', slug: ['api', 'track-link-access'] },
+  { href: '/docs/api/list-shareable-links', title: 'List Shareable Links', slug: ['api', 'list-shareable-links'] },
+  { href: '/docs/api/get-shareable-link', title: 'Get Shareable Link', slug: ['api', 'get-shareable-link'] },
   
   // Advanced
   { href: '/docs/advanced/gas-strategies', title: 'Gas Strategies', slug: ['advanced', 'gas-strategies'] },

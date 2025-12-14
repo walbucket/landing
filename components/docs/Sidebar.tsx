@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, FileText, BookOpen, Code, Settings, Shield, Zap } from 'lucide-react'
+import { ChevronRight, FileText, BookOpen, Code, Settings, Share2, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -33,6 +33,35 @@ const navItems: NavItem[] = [
       { title: 'Retrieve', href: '/docs/api/retrieve' },
       { title: 'Delete', href: '/docs/api/delete' },
       { title: 'Get Asset', href: '/docs/api/get-asset' },
+      { title: 'List', href: '/docs/api/list' },
+      { title: 'Rename', href: '/docs/api/rename' },
+      { title: 'Copy', href: '/docs/api/copy' },
+    ],
+  },
+  {
+    title: 'Folder Management',
+    href: '/docs/api/folders',
+    icon: FolderOpen,
+    children: [
+      { title: 'Create Folder', href: '/docs/api/create-folder' },
+      { title: 'Delete Folder', href: '/docs/api/delete-folder' },
+      { title: 'Move to Folder', href: '/docs/api/move-to-folder' },
+    ],
+  },
+  {
+    title: 'Sharing & Permissions',
+    href: '/docs/api/sharing',
+    icon: Share2,
+    children: [
+      { title: 'Share Asset', href: '/docs/api/share-asset' },
+      { title: 'Revoke Share', href: '/docs/api/revoke-share' },
+      { title: 'List Access Grants', href: '/docs/api/list-access-grants' },
+      { title: 'Get Access Grant', href: '/docs/api/get-access-grant' },
+      { title: 'Create Shareable Link', href: '/docs/api/create-shareable-link' },
+      { title: 'Deactivate Link', href: '/docs/api/deactivate-shareable-link' },
+      { title: 'Track Link Access', href: '/docs/api/track-link-access' },
+      { title: 'List Shareable Links', href: '/docs/api/list-shareable-links' },
+      { title: 'Get Shareable Link', href: '/docs/api/get-shareable-link' },
     ],
   },
   {

@@ -5,7 +5,6 @@ import { Sidebar } from '@/components/docs/Sidebar'
 import { DocsNavigation } from '@/components/docs/DocsNavigation'
 import { TableOfContents } from '@/components/docs/TableOfContents'
 import { Breadcrumbs } from '@/components/docs/Breadcrumbs'
-import { Search } from '@/components/docs/Search'
 import { getDocsNavigation } from '@/lib/docs-order'
 
 interface DocsLayoutProps {
@@ -26,20 +25,11 @@ export function DocsLayout({ children, slug = [] }: DocsLayoutProps) {
         <div className="grid grid-cols-1 lg:grid-cols-[250px_1fr] xl:grid-cols-[250px_1fr_220px] gap-8">
           {/* Sidebar */}
           <aside className="hidden lg:block sticky top-20 self-start">
-            <div className="space-y-4">
-              {/* Search */}
-              <Search />
-              <Sidebar currentPath={slug} />
-            </div>
+            <Sidebar currentPath={slug} />
           </aside>
 
           {/* Content */}
           <main className="min-w-0">
-            {/* Mobile Search */}
-            <div className="mb-6 lg:hidden">
-              <Search />
-            </div>
-            
             {/* Breadcrumbs */}
             <Breadcrumbs slug={slug} />
             

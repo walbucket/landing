@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Github, Package, FileText } from 'lucide-react'
+import { Github, Package, FileText, Cloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -34,8 +34,11 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="space-y-4">
-            <div className="text-2xl font-bold bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
-              Walbucket
+            <div className="flex items-center space-x-2">
+              <Cloud className="h-6 w-6 text-blue-600" />
+              <span className="text-2xl font-bold bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">
+                Walbucket
+              </span>
             </div>
             <p className="text-sm text-muted-foreground">
               Decentralized media storage for developers. Cloudinary-like API on Sui blockchain.

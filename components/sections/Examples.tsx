@@ -9,13 +9,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/transitions'
+import { CodeBlock } from '../CodeBlock'
 
-const examples = [
+interface ExampleData {
+  id: string
+  title: string
+  description: string
+  icon: string
+  category: string
+  code: string
+  highlightedCode?: string
+  href: string
+  color: string
+}
+
+// Icon mapping for client-side resolution
+const iconMap = {
+  FileText,
+  Shield,
+  Code2,
+  Zap,
+}
+
+const examples: ExampleData[] = [
   {
     id: 'basic-upload',
     title: 'Basic Upload',
     description: 'Upload files to decentralized storage with a simple API call',
-    icon: FileText,
+    icon: 'FileText',
     category: 'Getting Started',
     code: `const result = await walbucket.upload(file, {
   name: 'my-image.jpg',
@@ -28,7 +49,7 @@ const examples = [
     id: 'with-encryption',
     title: 'With Encryption',
     description: 'Upload files with wallet-gated encryption for secure access',
-    icon: Shield,
+    icon: 'Shield',
     category: 'Security',
     code: `const result = await walbucket.upload(file, {
   encryption: true,
@@ -43,7 +64,7 @@ const examples = [
     id: 'wallet-integration',
     title: 'Wallet Integration',
     description: 'Integrate with Sui wallets for user-pays gas strategy',
-    icon: Code2,
+    icon: 'Code2',
     category: 'Advanced',
     code: `const walbucket = new Walbucket({
   gasStrategy: 'user-pays',
@@ -56,7 +77,7 @@ const examples = [
     id: 'retrieve-delete',
     title: 'Retrieve & Delete',
     description: 'Retrieve and delete files from decentralized storage',
-    icon: Zap,
+    icon: 'Zap',
     category: 'Operations',
     code: `const file = await walbucket.retrieve(assetId);
 await walbucket.delete(assetId);`,
@@ -67,17 +88,22 @@ await walbucket.delete(assetId);`,
 
 const categories = ['All', 'Getting Started', 'Security', 'Advanced', 'Operations']
 
+interface ExamplesProps {
+  examples?: ExampleData[]
+}
+
 /**
  * Examples Gallery Section
  * Showcase code examples with interactive cards
  */
-export function Examples() {
+export function Examples({ examples: examplesProp }: ExamplesProps) {
+  const examplesData = examplesProp || examples
   const [selectedCategory, setSelectedCategory] = useState('All')
 
   const filteredExamples =
     selectedCategory === 'All'
-      ? examples
-      : examples.filter((ex) => ex.category === selectedCategory)
+      ? examplesData
+      : examplesData.filter((ex) => ex.category === selectedCategory)
 
   return (
     <Section
@@ -135,8 +161,8 @@ export function Examples() {
           viewport={{ once: true }}
           className="grid md:grid-cols-2 lg:grid-cols-4 gap-6"
         >
-          {filteredExamples.map((example, index) => {
-            const Icon = example.icon
+          {filteredExamples.map((example) => {
+            const Icon = iconMap[example.icon as keyof typeof iconMap] || FileText
             return (
               <motion.div key={example.id} variants={staggerItem}>
                 <Card className="group h-full flex flex-col hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50">
@@ -156,8 +182,13 @@ export function Examples() {
                   </CardHeader>
                   <CardContent className="flex-1 flex flex-col">
                     {/* Code Preview */}
-                    <div className="mb-4 p-3 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-                      <pre className="text-muted-foreground">{example.code}</pre>
+                    <div className="mb-4">
+                      <CodeBlock 
+                        code={example.code} 
+                        language="typescript" 
+                        highlightedCode={example.highlightedCode}
+                        className="text-xs"
+                      />
                     </div>
 
                     {/* Actions */}
@@ -176,7 +207,7 @@ export function Examples() {
                       <Button
                         asChild
                         size="sm"
-                        className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+                        className="flex-1 bg-linear-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
                       >
                         <Link href={`/playground?example=${example.id}`} aria-label={`Try ${example.title} example in playground`}>
                           <Play className="h-4 w-4 mr-2" aria-hidden="true" />

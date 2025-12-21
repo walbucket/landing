@@ -115,23 +115,20 @@ function APIVisualization({ hovered }: { hovered?: boolean }) {
         </mesh>
       ))}
       {/* Connections */}
-      <lineSegments>
-        <edgesGeometry
-          args={[
-            new THREE.BufferGeometry().setFromPoints([
-              new THREE.Vector3(0, 0, 0),
-              new THREE.Vector3(-0.3, 0.3, 0),
-              new THREE.Vector3(0, 0, 0),
-              new THREE.Vector3(0.3, 0.3, 0),
-              new THREE.Vector3(0, 0, 0),
-              new THREE.Vector3(-0.3, -0.3, 0),
-              new THREE.Vector3(0, 0, 0),
-              new THREE.Vector3(0.3, -0.3, 0),
-            ]),
-          ]}
-        />
-        <lineBasicMaterial color="#06b6d4" opacity={0.5} transparent />
-      </lineSegments>
+      {nodePositions.slice(1).map((pos, i) => {
+        const points = [
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3(pos[0], pos[1], pos[2])
+        ]
+        const geometry = new THREE.BufferGeometry().setFromPoints(points)
+        
+        return (
+          <line key={i}>
+            <primitive object={geometry} attach="geometry" />
+            <lineBasicMaterial color="#06b6d4" opacity={0.5} transparent />
+          </line>
+        )
+      })}
     </group>
   )
 }

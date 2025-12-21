@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next'
+import { config } from '@/lib/config'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -9,6 +10,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/api/', '/_next/'],
       },
     ],
-    sitemap: 'https://walbucket.com/sitemap.xml',
+    sitemap: `${config.siteUrl}/sitemap.xml`,
   }
 }

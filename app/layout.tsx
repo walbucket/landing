@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { StructuredData } from "@/components/StructuredData";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SkipLink } from "@/components/SkipLink";
+import { config } from "@/lib/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://walbucket.com'),
+  metadataBase: new URL(config.siteUrl),
   title: {
     default: "Walbucket - Decentralized Media Storage for Developers",
     template: "%s | Walbucket",
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://walbucket.com',
+    url: config.siteUrl,
     siteName: "Walbucket",
     title: "Walbucket - Decentralized Media Storage for Developers",
     description: "Cloudinary-like API for decentralized media storage on Sui blockchain. Built-in encryption, flexible gas strategies, and seamless integration.",
@@ -64,7 +65,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_SITE_URL || 'https://walbucket.com',
+    canonical: config.siteUrl,
   },
 };
 

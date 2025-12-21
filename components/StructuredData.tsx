@@ -3,14 +3,16 @@
  * Provides schema.org structured data for SEO
  */
 
+import { config } from '@/lib/config'
+
 export function StructuredData() {
   const organizationSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Walbucket',
     description: 'Decentralized media storage for developers on Sui blockchain',
-    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://walbucket.com',
-    logo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://walbucket.com'}/logo.png`,
+    url: config.siteUrl,
+    logo: `${config.siteUrl}/logo.png`,
     sameAs: [
       'https://github.com/walbucket',
       'https://www.npmjs.com/package/@walbucket/sdk',
@@ -40,12 +42,12 @@ export function StructuredData() {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
     name: 'Walbucket',
-    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://walbucket.com',
+    url: config.siteUrl,
     potentialAction: {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://walbucket.com'}/docs?search={search_term_string}`,
+        urlTemplate: `${config.siteUrl}/docs?search={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },

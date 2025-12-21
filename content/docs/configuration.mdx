@@ -6,11 +6,19 @@ Configure the Walbucket SDK to match your needs. All configuration is done when 
 
 ### `apiKey` (required)
 
-Your API key for authentication. Get your API key from the Walbucket dashboard.
+Your API key for authentication. Get your API key from the Walbucket Developer Console:
+
+1. Go to the **Developer Console** (use the **Console** link in the navigation bar)
+2. Sign in with your wallet  
+3. Navigate to the **Developer** section, then go to **API Keys**
+4. Click **Create API Key** to generate a new key
+5. Copy your API key and use it in your configuration
 
 ```typescript
 apiKey: "your-api-key";
 ```
+
+> **Security Note**: Always store your API key in environment variables and never commit it to version control. For client-side applications, use environment variables prefixed with `NEXT_PUBLIC_` (Next.js) or similar build-time environment variable injection.
 
 ### Gas Strategy Fields (one required)
 

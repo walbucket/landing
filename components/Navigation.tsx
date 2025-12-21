@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Search } from '@/components/docs/Search'
 import { cn } from '@/lib/utils'
+import { config } from '@/lib/config'
 
 const navItems = [
   { label: 'Features', href: '#features' },
@@ -15,6 +16,7 @@ const navItems = [
   { label: 'Documentation', href: '/docs' },
   { label: 'Playground', href: '/playground' },
   { label: 'Examples', href: '#examples' },
+  { label: 'Console', href: config.dappUrl, external: true },
 ]
 
 /**
@@ -109,12 +111,15 @@ export function Navigation() {
                   </motion.button>
                 )
               }
+              const isExternal = (item as any).external === true
               return (
                 <Link 
                   key={item.href} 
                   href={item.href}
+                  target={isExternal ? '_blank' : undefined}
+                  rel={isExternal ? 'noopener noreferrer' : undefined}
                   className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:rounded-md px-2 py-1"
-                  aria-label={`Navigate to ${item.label}`}
+                  aria-label={`Navigate to ${item.label}${isExternal ? ' (opens in new tab)' : ''}`}
                   role="menuitem"
                 >
                   <motion.div
@@ -209,13 +214,16 @@ export function Navigation() {
                       </motion.button>
                     )
                   }
+                  const isExternal = (item as any).external === true
                   return (
                     <Link 
                       key={item.href} 
                       href={item.href}
+                      target={isExternal ? '_blank' : undefined}
+                      rel={isExternal ? 'noopener noreferrer' : undefined}
                       className="block w-full text-left px-4 py-2 text-sm font-medium text-foreground/80 hover:text-foreground hover:bg-accent rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       role="menuitem"
-                      aria-label={`Navigate to ${item.label}`}
+                      aria-label={`Navigate to ${item.label}${isExternal ? ' (opens in new tab)' : ''}`}
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       <motion.div
